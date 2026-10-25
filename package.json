@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "inox-server": "node server/inox-sync-server.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",
