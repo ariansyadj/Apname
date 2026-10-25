@@ -295,9 +295,27 @@ function parseRow(row) {
     };
   }
   if (row && typeof row === 'object') {
-    const variationRawObj = stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? '');
+    // VARIAN LENGKAP DARI FEED, MASSAL LEWAT API (temuan browser 2026-10-26,
+    // baca-saja di inox.my.id, tanpa mengubah data): di iNOX tidak ada field
+    // "grade" terpisah — grade ADALAH nilai variasi itu sendiri. Template =
+    // product_variation ("LCD", "BATT", "BG/HS2", "DUMMY"), nilai =
+    // variation_name ("JK", "BPE Black", "GOLD", "DUMMY"). Nama lengkap di
+    // iNOX selalu "template - nilai" (modal produk: "LCD - JK",
+    // "BG/HS2 - GOLD"), dan kolom Varian di Laporan Stok menampilkannya
+    // sebagai "LCD-JK", "BG/HS2-GOLD". Feed JSON sebelumnya hanya memakai
+    // product_variation saja, sehingga yang tersimpan cuma template
+    // ("LCD", "BATT", "BG/HS2") — itulah akar masalahnya, bukan feed yang
+    // tidak punya grade. Perbaikan: gabungkan template + nilai di server,
+    // dalam satu tarikan feed, tanpa panggilan per produk dan tanpa Excel.
+    const template = stripHtml(row.product_variation || '');
+    const value = stripHtml(row.variation_name || '') || stripHtml(row.variation || '');
+    let variationObj;
+    if (!template) variationObj = value || '';
+    else if (!value || value === template) variationObj = template;
+    else if (value.toUpperCase().startsWith(template.toUpperCase() + '-')) variationObj = value;
+    else if (value.toUpperCase().startsWith(template.toUpperCase() + ' - ')) variationObj = template + '-' + value.slice(template.length + 3).trim();
+    else variationObj = template + '-' + value;
     const productRawObj = stripHtml(row.product);
-    const variationObj = variationRawObj;
     return {
       sku: stripHtml(row.sku),
       product: productRawObj,
@@ -568,7 +586,7 @@ const server = http.createServer(async (req, res) => {
     }
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/api/health') {
-      sendJson(res, req, 200, { ok: true, service: 'inox-sync-local', port: PORT, build: '2026-10-26-lcd-sample' });
+      sendJson(res, req, 200, { ok: true, service: 'inox-sync-local', port: PORT, build: '2026-10-26-lcd-full' });
       return;
     }
     if (req.method === 'POST' && (url.pathname === '/api/inox/test' || url.pathname === '/api/inox/sync')) {
