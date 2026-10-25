@@ -243,12 +243,17 @@ function parseNum(v) {
 function extractLcdVariant(text) {
   if (!text) return null;
   const str = String(text).trim();
-  const m = str.match(/LCD\s*-\s*([A-Za-z0-9]+)/i);
-  if (m) return m[1].toUpperCase();
-  if (/LCD/i.test(str) && str.includes(' - ')) {
-    const parts = str.split(' - ').map((x) => x.trim()).filter(Boolean);
-    const last = parts[parts.length - 1];
-    if (last && last.length <= 12 && /^[A-Za-z0-9 ]+$/.test(last)) return last.toUpperCase();
+  // KOREKSI 2026-10-25 (screenshot Ucok, highlight biru "JK" di "LCD-JK"):
+  // varian = SELURUH keterangan setelah "-" — bukan hanya token pertama.
+  // "LCD-BPE Black" -> "BPE Black" (bukan "BPE" saja),
+  // "LCD-DD Oled" -> "DD Oled", "LCD-JK" -> "JK", "LCD iPhone 13 - JK" -> "JK".
+  // Kode satu kata saja tetap dinormalisasi ke huruf besar ("bpt" -> "BPT");
+  // keterangan multi-kata dipertahankan apa adanya seperti di feed.
+  const m = str.match(/LCD.*?-\s*(.+)$/i);
+  if (m && m[1].trim()) {
+    const after = m[1].trim();
+    if (/^[A-Za-z0-9]+$/.test(after)) return after.toUpperCase();
+    return after;
   }
   return null;
 }

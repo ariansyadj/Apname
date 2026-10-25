@@ -44,12 +44,11 @@ function matchesQuery(pr: Product, q: string): boolean {
 function lcdVariantFrom(text: string): string | null {
   if (!text) return null;
   const str = String(text).trim();
-  const m = str.match(/LCD\s*-\s*([A-Za-z0-9]+)/i);
-  if (m) return m[1].toUpperCase();
-  if (/LCD/i.test(str) && str.includes(' - ')) {
-    const parts = str.split(' - ').map(x => x.trim()).filter(Boolean);
-    const last = parts[parts.length - 1];
-    if (last && last.length <= 12 && /^[A-Za-z0-9 ]+$/.test(last)) return last.toUpperCase();
+  const m = str.match(/LCD.*?-\s*(.+)$/i);
+  if (m && m[1].trim()) {
+    const after = m[1].trim();
+    if (/^[A-Za-z0-9]+$/.test(after)) return after.toUpperCase();
+    return after;
   }
   return null;
 }
@@ -255,7 +254,7 @@ export default function App() {
       const branch = BRANCHES.find(b => b.location_id === locId);
       const idx = hasIds
         ? newProducts.findIndex(pr => pr.product_id === r.product_id && pr.variation_id === r.variation_id && pr.location_id === locId)
-        : (() => { const direct = newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === varStr && pr.location_id === locId); if (direct !== -1) return direct; return newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === `LCD-${varStr}` && pr.location_id === locId); })();
+        : (() => { const direct = newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === varStr && pr.location_id === locId); if (direct !== -1) return direct; const lcdOld = newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === `LCD-${varStr}` && pr.location_id === locId); if (lcdOld !== -1) return lcdOld; const firstToken = varStr.split(/\s+/)[0]; if (firstToken && firstToken !== varStr) { const byToken = newProducts.findIndex(pr => pr.sku === String(r.sku) && (pr.variant === firstToken || pr.variant === `LCD-${firstToken}`) && pr.location_id === locId); if (byToken !== -1) return byToken; } return -1; })();
       let internalId: string;
       if (idx === -1) {
         const safe = (x: string) => String(x).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'X';
