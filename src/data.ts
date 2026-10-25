@@ -8,13 +8,13 @@ export const BRANCHES: Branch[] = [
   { id: 'SDNKG', name: 'SDNKG', location_id: 7, location_name: 'SDNKG' },
 ];
 export const SEED_PRODUCTS: Product[] = [
-  { id: 'p1', sku: '8990124000135', name: 'Battery iPhone 14 Pro', variant: 'BATT-HX P', category: 'SPAREPART', price: 783000, product_id: 1040, variation_id: 1756, location_id: 6, barcode: '8990124000135' },
-  { id: 'p1b', sku: '8990124000135', name: 'Battery iPhone 14 Pro', variant: 'BATT-HX P', category: 'SPAREPART', price: 783000, product_id: 1040, variation_id: 1756, location_id: 8, barcode: '8990124000135' },
-  { id: 'p2', sku: '8990124000296', name: 'Battery iPhone XR', variant: 'BATT-BTA PP', category: 'SPAREPART', price: 450000, product_id: 1039, variation_id: 1726, location_id: 6, barcode: '8990124000296' },
-  { id: 'p2b', sku: '8990124000296', name: 'Battery iPhone XR', variant: 'BATT-LF PP', category: 'SPAREPART', price: 465000, product_id: 1039, variation_id: 1727, location_id: 8, barcode: '8990124000296' },
-  { id: 'p3', sku: '00002085', name: 'LCD iPhone 6 Plus', variant: 'LCD-OR', category: 'SPAREPART', price: 890000, product_id: 1021, variation_id: 1601, location_id: 6, barcode: '00002085' },
-  { id: 'p4', sku: '8990124000401', name: 'Adapter Charger 20W', variant: 'ADP-20W', category: 'ACCESORIS', price: 185000, product_id: 1050, variation_id: 1801, location_id: 6, barcode: '8990124000401' },
-  { id: 'p5', sku: '8990124000402', name: 'Kabel Lightning 1m', variant: 'KBL-LGT', category: 'ACCESORIS', price: 95000, product_id: 1051, variation_id: 1802, location_id: 6, barcode: '8990124000402' },
+  { id: 'p1', sku: '8990124000135', name: 'Battery iPhone 14 Pro', variant: 'HX P', category: 'SPAREPART', price: 783000, product_id: 1040, variation_id: 1756, location_id: 6, barcode: '8990124000135' },
+  { id: 'p1b', sku: '8990124000135', name: 'Battery iPhone 14 Pro', variant: 'HX P', category: 'SPAREPART', price: 783000, product_id: 1040, variation_id: 1756, location_id: 8, barcode: '8990124000135' },
+  { id: 'p2', sku: '8990124000296', name: 'Battery iPhone XR', variant: 'BTA PP', category: 'SPAREPART', price: 450000, product_id: 1039, variation_id: 1726, location_id: 6, barcode: '8990124000296' },
+  { id: 'p2b', sku: '8990124000296', name: 'Battery iPhone XR', variant: 'LF PP', category: 'SPAREPART', price: 465000, product_id: 1039, variation_id: 1727, location_id: 8, barcode: '8990124000296' },
+  { id: 'p3', sku: '00002085', name: 'LCD iPhone 6 Plus', variant: 'OR', category: 'SPAREPART', price: 890000, product_id: 1021, variation_id: 1601, location_id: 6, barcode: '00002085' },
+  { id: 'p4', sku: '8990124000401', name: 'Adapter Charger 20W', variant: '20W', category: 'ACCESORIS', price: 185000, product_id: 1050, variation_id: 1801, location_id: 6, barcode: '8990124000401' },
+  { id: 'p5', sku: '8990124000402', name: 'Kabel Lightning 1m', variant: 'LGT', category: 'ACCESORIS', price: 95000, product_id: 1051, variation_id: 1802, location_id: 6, barcode: '8990124000402' },
 ];
 export function seedRacks(): Rack[] {
   const racks: Rack[] = [];

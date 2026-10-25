@@ -240,22 +240,21 @@ function parseNum(v) {
 // Contoh: "LCD-BPT" -> "BPT", "LCD - GX" -> "GX", "LCD iPhone 13 - JK" -> "JK".
 // Hanya berlaku bila ada pola LCD + dash; produk lain (mis. "BATT-HX P")
 // tidak disentuh sama sekali. Mengembalikan null bila tidak ada pola LCD-.
-function extractLcdVariant(text) {
+// Aturan varian (studi file Laporan Stok iNOX, 2026-10-25): SEMUA varian iNOX
+// berbentuk "<PREFIX>-<KETERANGAN>" — LCD-BPE Black, BATT-BR P, BG/HS1-BLACK,
+// CAM-Front, S/B-Buzzer, FLX-ON/OFF, dst. Prefix (LCD/BATT/...) sudah
+// terkandung di nama produk, jadi keterangan varian yang dipakai adalah
+// SELURUH teks setelah "-" pertama: "LCD-BR P" -> "BR P",
+// "LCD-BPE Black" -> "BPE Black", "BATT-BR P" -> "BR P",
+// "LCD-JK Soft Oled" -> "JK Soft Oled". Bukan prefixnya saja ("LCD"),
+// dan bukan token pertama saja ("BPE"). Tanpa "-" dikembalikan null.
+function variantAfterDash(text) {
   if (!text) return null;
   const str = String(text).trim();
-  // KOREKSI 2026-10-25 (screenshot Ucok, highlight biru "JK" di "LCD-JK"):
-  // varian = SELURUH keterangan setelah "-" — bukan hanya token pertama.
-  // "LCD-BPE Black" -> "BPE Black" (bukan "BPE" saja),
-  // "LCD-DD Oled" -> "DD Oled", "LCD-JK" -> "JK", "LCD iPhone 13 - JK" -> "JK".
-  // Kode satu kata saja tetap dinormalisasi ke huruf besar ("bpt" -> "BPT");
-  // keterangan multi-kata dipertahankan apa adanya seperti di feed.
-  const m = str.match(/LCD.*?-\s*(.+)$/i);
-  if (m && m[1].trim()) {
-    const after = m[1].trim();
-    if (/^[A-Za-z0-9]+$/.test(after)) return after.toUpperCase();
-    return after;
-  }
-  return null;
+  const idx = str.indexOf('-');
+  if (idx < 0) return null;
+  const after = str.slice(idx + 1).trim();
+  return after ? after : null;
 }
 function parseRow(row) {
   if (Array.isArray(row)) {
@@ -278,7 +277,7 @@ function parseRow(row) {
     const vidMatch = actionHtml.match(/variation_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/variations\/(\d+)/i);
     const variationRaw = stripHtml(row[3]);
     const productRaw = stripHtml(row[2]);
-    const variation = extractLcdVariant(variationRaw) || extractLcdVariant(productRaw) || variationRaw;
+    const variation = variantAfterDash(variationRaw) || variantAfterDash(productRaw) || variationRaw;
     return {
       sku: stripHtml(row[1]),
       product: productRaw,
@@ -301,7 +300,7 @@ function parseRow(row) {
   if (row && typeof row === 'object') {
     const variationRawObj = stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? '');
     const productRawObj = stripHtml(row.product);
-    const variationObj = extractLcdVariant(variationRawObj) || extractLcdVariant(productRawObj) || variationRawObj;
+    const variationObj = variantAfterDash(variationRawObj) || variantAfterDash(productRawObj) || variationRawObj;
     return {
       sku: stripHtml(row.sku),
       product: productRawObj,
