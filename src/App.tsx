@@ -35,6 +35,18 @@ function matchesQuery(pr: Product, q: string): boolean {
   const hay = (pr.name + ' ' + pr.sku + ' ' + pr.variant + ' ' + pr.barcode + ' ' + branchIdOfProduct(pr) + ' ' + pr.category).toLowerCase();
   return tokens.every(t => hay.includes(t));
 }
+function lcdVariantFrom(text: string): string | null {
+  if (!text) return null;
+  const str = String(text).trim();
+  const m = str.match(/LCD\s*-\s*([A-Za-z0-9]+)/i);
+  if (m) return m[1].toUpperCase();
+  if (/LCD/i.test(str) && str.includes(' - ')) {
+    const parts = str.split(' - ').map(x => x.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && last.length <= 12 && /^[A-Za-z0-9 ]+$/.test(last)) return last.toUpperCase();
+  }
+  return null;
+}
 function paginate<T>(list: T[], page: number, pageSize: number | 'Semua'): T[] {
   if (pageSize === 'Semua') return list;
   const ps = Number(pageSize);
@@ -197,14 +209,14 @@ export default function App() {
         if (found) locId = found.location_id;
       }
       if (locId === null || !r.sku) { skipped++; continue; }
-      const varStr = String(r.variation || '-');
+      const varStr = lcdVariantFrom(String(r.variation || '')) || lcdVariantFrom(String(r.product || '')) || String(r.variation || '-');
       const hasIds = typeof r.product_id === 'number' && typeof r.variation_id === 'number';
       // Kunci cadangan bila feed tidak membawa ID (baris array DataTables):
       // SKU + varian + lokasi sudah unik per cabang dalam praktik iNOX.
       const branch = BRANCHES.find(b => b.location_id === locId);
       const idx = hasIds
         ? newProducts.findIndex(pr => pr.product_id === r.product_id && pr.variation_id === r.variation_id && pr.location_id === locId)
-        : newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === varStr && pr.location_id === locId);
+        : (() => { const direct = newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === varStr && pr.location_id === locId); if (direct !== -1) return direct; return newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.variant === `LCD-${varStr}` && pr.location_id === locId); })();
       let internalId: string;
       if (idx === -1) {
         const safe = (x: string) => String(x).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'X';
@@ -249,7 +261,7 @@ export default function App() {
         if (!data.ok) { alert(`Sync nyata GAGAL: ${data.error || 'tidak diketahui'}${data.step ? ` (tahap: ${data.step})` : ''} — data lama tidak diubah.`); return; }
         const result = importInoxRows(data.rows || []);
         setLastSync(Date.now()); setInoxConnected(true);
-        const lcdSet = new Set<string>(); for (const r of (data.rows || [])) { if (String(r.product || '').toUpperCase().includes('LCD') && r.variation) lcdSet.add(String(r.variation)); }
+        const lcdSet = new Set<string>(); for (const r of (data.rows || [])) { if (String(r.product || '').toUpperCase().includes('LCD') || String(r.variation || '').toUpperCase().includes('LCD')) { const g = lcdVariantFrom(String(r.variation || '')) || lcdVariantFrom(String(r.product || '')) || String(r.variation || ''); if (g) lcdSet.add(g); } }
         const branchCountsSync: Record<string, number> = {}; for (const r of (data.rows || [])) { const loc = typeof r.location_id === 'number' ? r.location_id : null; const b = loc !== null ? BRANCHES.find(x => x.location_id === loc) : (typeof r.location === 'string' ? BRANCHES.find(x => String(r.location).toUpperCase().includes(x.location_name)) : undefined); const label = b ? b.id : 'Lokasi tidak dikenali'; branchCountsSync[label] = (branchCountsSync[label] || 0) + 1; }
         setLastSyncReport({ at: Date.now(), recordsTotal: data.recordsTotal, fetched: (data.rows || []).length, added: result.added, updated: result.updated, skipped: result.skipped, branchSummary: Object.entries(branchCountsSync).map(([k, v]) => `${k}: ${v}`).join(', ') || '—', lcdVariants: [...lcdSet].sort() });
         const branchSummary = (() => { const counts: Record<string, number> = {}; for (const r of (data.rows || [])) { const loc = typeof r.location_id === 'number' ? r.location_id : null; const b = loc !== null ? BRANCHES.find(x => x.location_id === loc) : (typeof r.location === 'string' ? BRANCHES.find(x => String(r.location).toUpperCase().includes(x.location_name)) : undefined); const label = b ? b.id : 'Lokasi tidak dikenali'; counts[label] = (counts[label] || 0) + 1; } return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'; })(); alert(`Sync nyata BERHASIL: ${data.recordsTotal} baris dari iNOX, terkumpul ${(data.rows || []).length}. Per cabang di feed: ${branchSummary}. Produk baru: ${result.added}, master diperbarui: ${result.updated}, dilewati (tanpa SKU/varian/lokasi): ${result.skipped}. Stok per rak TIDAK diubah — produk baru masuk Belum Ditempatkan, produk lama hanya master-nya diperbarui. Total eksternal per produk bisa dilihat di Stok & Master.${result.added === 0 && result.updated === 0 ? ' PERINGATAN: tidak ada produk yang masuk sama sekali — kemungkinan format feed berubah; kirim pesan ini + jumlah dilewati ke pengembang.' : ''} Kalau di Stok & Master masih hanya KWSN, cek filter cabang di atas tabel (tombol cabang) dan filter cabang di header — akun Admin/Karyawan hanya bisa melihat cabangnya sendiri, login Super Admin untuk semua cabang.`);

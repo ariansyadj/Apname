@@ -236,6 +236,22 @@ function parseNum(v) {
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
+// Aturan Ucok 2026-10-25: varian LCD diambil dari SETELAH "LCD-".
+// Contoh: "LCD-BPT" -> "BPT", "LCD - GX" -> "GX", "LCD iPhone 13 - JK" -> "JK".
+// Hanya berlaku bila ada pola LCD + dash; produk lain (mis. "BATT-HX P")
+// tidak disentuh sama sekali. Mengembalikan null bila tidak ada pola LCD-.
+function extractLcdVariant(text) {
+  if (!text) return null;
+  const str = String(text).trim();
+  const m = str.match(/LCD\s*-\s*([A-Za-z0-9]+)/i);
+  if (m) return m[1].toUpperCase();
+  if (/LCD/i.test(str) && str.includes(' - ')) {
+    const parts = str.split(' - ').map((x) => x.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && last.length <= 12 && /^[A-Za-z0-9 ]+$/.test(last)) return last.toUpperCase();
+  }
+  return null;
+}
 function parseRow(row) {
   if (Array.isArray(row)) {
     // PENTING (bug cabang tidak terdeteksi, 2026-10-25): baris DataTables
@@ -255,10 +271,13 @@ function parseRow(row) {
     const actionHtml = typeof row[0] === 'string' ? row[0] : '';
     const pidMatch = actionHtml.match(/product_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/products\/(\d+)/i);
     const vidMatch = actionHtml.match(/variation_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/variations\/(\d+)/i);
+    const variationRaw = stripHtml(row[3]);
+    const productRaw = stripHtml(row[2]);
+    const variation = extractLcdVariant(variationRaw) || extractLcdVariant(productRaw) || variationRaw;
     return {
       sku: stripHtml(row[1]),
-      product: stripHtml(row[2]),
-      variation: stripHtml(row[3]),
+      product: productRaw,
+      variation,
       category: stripHtml(row[4]),
       location: stripHtml(row[5]),
       unit_price: parseNum(row[6]),
@@ -275,10 +294,13 @@ function parseRow(row) {
     };
   }
   if (row && typeof row === 'object') {
+    const variationRawObj = stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? '');
+    const productRawObj = stripHtml(row.product);
+    const variationObj = extractLcdVariant(variationRawObj) || extractLcdVariant(productRawObj) || variationRawObj;
     return {
       sku: stripHtml(row.sku),
-      product: stripHtml(row.product),
-      variation: stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? ''),
+      product: productRawObj,
+      variation: variationObj,
       category: stripHtml(row.category_name ?? row.category ?? ''),
       location: stripHtml(row.location_name ?? row.location ?? ''),
       unit_price: parseNum(row.unit_price),
