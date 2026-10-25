@@ -586,7 +586,7 @@ const server = http.createServer(async (req, res) => {
     }
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/api/health') {
-      sendJson(res, req, 200, { ok: true, service: 'inox-sync-local', port: PORT, build: '2026-10-26-per-level' });
+      sendJson(res, req, 200, { ok: true, service: 'inox-sync-local', port: PORT, build: '2026-10-26-mutasi-list' });
       return;
     }
     if (req.method === 'POST' && (url.pathname === '/api/inox/test' || url.pathname === '/api/inox/sync')) {
