@@ -17,6 +17,7 @@ export type ReportRow = {
 export type ReportMeta = {
   id: string;
   title: string;
+  createdBy: string;
   branchId: string;
   scope: string;
   created: string;
@@ -70,7 +71,7 @@ export function printReport(meta: ReportMeta, rows: ReportRow[]): void {
     </style></head><body>`);
   win.document.write(`<p class="note">Ini ISI laporan, bukan halaman aplikasi. Tekan tombol Cetak di bawah, atau Ctrl+P, lalu pilih "Save as PDF" untuk menyimpan sebagai PDF.</p><button class="noprint" onclick="window.print()">Cetak / Simpan PDF</button>`);
   win.document.write(`<h1>Laporan Opname — ${esc(meta.id)}</h1><div class="meta">
-    Judul: ${esc(meta.title)}<br/>Cabang: ${esc(meta.branchId)}<br/>Scope: ${esc(meta.scope)}<br/>
+    Judul: ${esc(meta.title)}<br/>Dibuat oleh: ${esc(meta.createdBy || '—')}<br/>Cabang: ${esc(meta.branchId)}<br/>Scope: ${esc(meta.scope)}<br/>
     Dibuat: ${esc(meta.created)} • Dikunci: ${esc(meta.locked)} • Jumlah scan: ${meta.scanCount}<br/>
     Total baris: ${meta.totalRows} • Cocok: ${meta.cocok} • Lebih: ${meta.lebih} • Kurang: ${meta.kurang} • Belum dihitung: ${meta.belum}
     </div>`);
