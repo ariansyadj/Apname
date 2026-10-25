@@ -205,3 +205,47 @@ create policy "external_totals: read for authenticated" on external_totals
   for select using (auth.role() = 'authenticated');
 create policy "sync_runs: super read" on sync_runs
   for select using (public.is_super());
+
+-- === Tambahan migrasi penuh (2026-10-26) ===
+-- Aplikasi memakai id teks (bukan UUID) untuk scan/mutasi/pindah, karena
+-- id itu dibuat di browser (Date.now + random) dan dipakai untuk hapus
+-- per baris. Di proyek yang sudah dibuat dari skema lama, alter di bawah
+-- mengubah kolomnya tanpa menghapus data (id UUID lama jadi teks).
+alter table scans alter column id type text using id::text;
+alter table scans alter column id set default gen_random_uuid()::text;
+alter table session_mutations alter column id type text using id::text;
+alter table session_mutations alter column id set default gen_random_uuid()::text;
+alter table moves alter column id type text using id::text;
+alter table moves alter column id set default gen_random_uuid()::text;
+-- Belum Ditempatkan: bukan rak, jadi tidak bisa masuk stock_by_rack
+-- (rack_id ber-FK ke racks). Tabel khusus ini menyimpan qty yang belum
+-- ditempatkan per produk (produk sudah membawa location_id/cabangnya).
+create table if not exists unplaced_stock (
+  product_id text primary key references products(id) on delete cascade,
+  branch_id text not null,
+  qty integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table unplaced_stock enable row level security;
+-- Kebijakan tulis frontend (sebelumnya products/stock hanya SELECT, jadi
+-- migrasi & kunci sesi dari frontend akan ditolak RLS):
+-- products & external_totals: hanya super yang boleh tulis (sync harian
+-- lewat Edge Function memakai service role, bukan kebijakan ini).
+create policy "products: super write" on products
+  for all using (public.is_super()) with check (public.is_super());
+create policy "external_totals: super write" on external_totals
+  for all using (public.is_super()) with check (public.is_super());
+-- stock_by_rack: super atau staf cabang pemilik rak itu.
+create policy "stock: super or rack branch write" on stock_by_rack
+  for all using (public.is_super() or exists (
+    select 1 from racks r where r.id = stock_by_rack.rack_id and r.branch_id = public.my_branch()
+  )) with check (public.is_super() or exists (
+    select 1 from racks r where r.id = stock_by_rack.rack_id and r.branch_id = public.my_branch()
+  ));
+create policy "unplaced: super or product branch" on unplaced_stock
+  for all using (public.is_super() or branch_id = public.my_branch());
+create policy "unplaced: read for authenticated" on unplaced_stock
+  for select using (auth.role() = 'authenticated');
+-- Catatan: "for all" pada sessions/scans/mutations/moves di skema utama
+-- sudah mencakup tulis untuk super / cabang sendiri, jadi tidak perlu
+-- kebijakan tambahan untuk tabel-tabel itu.
