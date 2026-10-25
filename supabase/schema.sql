@@ -173,3 +173,35 @@ create policy "stock: read for authenticated" on stock_by_rack
   for select using (auth.role() = 'authenticated');
 create policy "moves: super or any branch staff (app enforces branch)" on moves
   for all using (auth.role() = 'authenticated');
+
+-- === Tambahan produksi (branch production, 2026-10-26) ===
+-- Tabel total eksternal iNOX (dipakai Edge Function inox-sync) dan
+-- riwayat sync. Keduanya TIDAK menggantikan stock_by_rack: stok rak/level
+-- hanya berubah lewat opname yang dikunci, bukan lewat sync.
+create table if not exists external_totals (
+  product_id text primary key references products(id) on delete cascade,
+  stock integer not null default 0,
+  stock_value numeric not null default 0,
+  total_sold integer not null default 0,
+  total_transfered integer not null default 0,
+  total_adjusted integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+create table if not exists sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  records_total integer not null default 0,
+  fetched integer not null default 0,
+  added integer not null default 0,
+  updated integer not null default 0,
+  skipped integer not null default 0,
+  branch_summary text not null default '',
+  status text not null default 'ok'
+);
+alter table products add column if not exists location_name text;
+alter table external_totals enable row level security;
+alter table sync_runs enable row level security;
+create policy "external_totals: read for authenticated" on external_totals
+  for select using (auth.role() = 'authenticated');
+create policy "sync_runs: super read" on sync_runs
+  for select using (public.is_super());
