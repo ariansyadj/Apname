@@ -128,6 +128,28 @@ menyentuh `stock_by_rack`.
     terbukti untuk sync nyata dari PC, dan branch `main` tetap branch
     kerja harian.
 
+## 5. Keep-alive Supabase gratis (supaya tidak auto-pause)
+
+- File: `scripts/supabase-keepalive.mjs` + `.github/workflows/supabase-keepalive.yml`.
+- Cara kerja: GitHub Actions ping baca kecil (1 baris tabel branches)
+  tiap tanggal 1, 7, 13, 19, 25, 31 jam 10:00 WITA — jeda maks 6 hari,
+  di bawah batas pause 7 hari. Tidak menulis data, tidak memanggil Edge
+  Function, tidak menyentuh iNOX.
+- Pemakaian: ~5 request/bulan, < 1 KB per request, 0 panggilan Edge
+  Function. Praktis tidak mengurangi limit gratis sama sekali.
+- Yang harus diisi Ucok (sekali saja, setelah proyek Supabase dibuat):
+  GitHub repo -> Settings -> Secrets and variables -> Actions ->
+  New repository secret: `SUPABASE_URL` (mis. https://xxx.supabase.co)
+  dan `SUPABASE_ANON_KEY` (kunci anon/publishable dari dashboard
+  Supabase, BUKAN service role key). Sampai dua secret ini diisi,
+  workflow akan gagal — itu normal, bukan kerusakan.
+- Uji manual: GitHub repo -> Actions -> "Supabase keep-alive" ->
+  Run workflow. Harus tampil "keep-alive OK".
+- Catatan: workflow terjadwal hanya jalan dari branch default (main).
+  GitHub juga bisa menonaktifkan jadwal kalau repo tidak disentuh 60
+  hari — mengaktifkannya lagi cukup dengan Run workflow manual sekali
+  atau push apa pun ke main.
+
 ## Rollback
 
 - Netlify bermasalah → di dashboard Netlify, kembalikan deploy ke deploy
