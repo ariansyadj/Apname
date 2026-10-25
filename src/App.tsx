@@ -230,7 +230,9 @@ export default function App() {
   const rackStockTotal = (rid: string) => products.reduce((a, p) => a + (racks.find(r => r.id === rid)?.levels || []).reduce((b, lv) => b + stockAt(p.id, rid, lv), 0), 0);
   function goView(v: View) { setView(v); setMobileSidebarOpen(false); }
   function doLogin() { const acc = accounts.find(a => a.email.toLowerCase() === loginEmail.trim().toLowerCase()); if (acc) { setUser({ email: acc.email, name: acc.name, role: acc.role, branchId: acc.branchId }); setBranchFilter(acc.branchId || 'Semua'); if (acc.branchId) { setSessBranch(acc.branchId); const firstRack = racks.find(r => r.branchId === acc.branchId); setSessRacks(firstRack ? [firstRack.id] : []); } } else alert('Akun tidak ditemukan. Minta Super Admin membuatnya di menu Kelola Akun, atau pakai super@opname (password bebas, demo lokal).'); }
-  function importInoxRows(rows: any[]): { added: number; updated: number; skipped: number } {
+  function importInoxRows(rows: any[]): { added: number; updated: number; skipped: number; cleaned: number } {
+    const TEMPLATE_ONLY = ['LCD', 'BATT', 'BG/HS1', 'BG/HS2', 'CAM', 'S/B', 'FLX', 'CNC', 'TMP', 'FCID', 'TS', 'ADP', 'KBL'];
+    const isTemplateOnly = (v: string) => v === '-' || TEMPLATE_ONLY.includes(v.toUpperCase());
     let added = 0, updated = 0, skipped = 0;
     const newProducts = [...products];
     const newStock = { ...stock };
@@ -246,14 +248,14 @@ export default function App() {
         if (found) locId = found.location_id;
       }
       if (locId === null || !r.sku) { skipped++; continue; }
-      const varStr = variantAfterDash(String(r.variation || '')) || variantAfterDash(String(r.product || '')) || String(r.variation || '-');
+      const varStr = variantAfterDash(String(r.variation || '')) || String(r.variation || '-');
       const hasIds = typeof r.product_id === 'number' && typeof r.variation_id === 'number';
       // Kunci cadangan bila feed tidak membawa ID (baris array DataTables):
       // SKU + varian + lokasi sudah unik per cabang dalam praktik iNOX.
       const branch = BRANCHES.find(b => b.location_id === locId);
       const idx = hasIds
         ? newProducts.findIndex(pr => pr.product_id === r.product_id && pr.variation_id === r.variation_id && pr.location_id === locId)
-        : (() => { const bySkuLoc = (pred: (pr: Product) => boolean) => newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.location_id === locId && pred(pr)); const direct = bySkuLoc(pr => pr.variant === varStr); if (direct !== -1) return direct; const byAfter = bySkuLoc(pr => { const i = pr.variant.indexOf('-'); return i >= 0 && pr.variant.slice(i + 1).trim() === varStr; }); if (byAfter !== -1) return byAfter; const firstToken = varStr.split(/\s+/)[0]; if (firstToken && firstToken !== varStr) { const byToken = bySkuLoc(pr => pr.variant === firstToken || (pr.variant.indexOf('-') >= 0 && pr.variant.slice(pr.variant.indexOf('-') + 1).trim() === firstToken)); if (byToken !== -1) return byToken; } return -1; })();
+        : (() => { const bySkuLoc = (pred: (pr: Product) => boolean) => newProducts.findIndex(pr => pr.sku === String(r.sku) && pr.location_id === locId && pred(pr)); const direct = bySkuLoc(pr => pr.variant === varStr); if (direct !== -1) return direct; const byAfter = bySkuLoc(pr => { const i = pr.variant.indexOf('-'); return i >= 0 && pr.variant.slice(i + 1).trim() === varStr; }); if (byAfter !== -1) return byAfter; const firstToken = varStr.split(/\s+/)[0]; if (firstToken && firstToken !== varStr) { const byToken = bySkuLoc(pr => pr.variant === firstToken || (pr.variant.indexOf('-') >= 0 && pr.variant.slice(pr.variant.indexOf('-') + 1).trim() === firstToken)); if (byToken !== -1) return byToken; } const byTemplate = bySkuLoc(pr => isTemplateOnly(pr.variant)); if (byTemplate !== -1) return byTemplate; return -1; })();
       let internalId: string;
       if (idx === -1) {
         const safe = (x: string) => String(x).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'X';
@@ -265,7 +267,7 @@ export default function App() {
         internalId = newProducts[idx].id;
         const old = newProducts[idx];
         if (old.name !== String(r.product || '') || old.variant !== varStr || old.category !== String(r.category || '') || old.price !== (Number(r.unit_price) || 0) || old.sku !== String(r.sku || '') || (old.location_name || '') !== String(r.location || '')) {
-          newProducts[idx] = { ...old, name: String(r.product || old.name), variant: String(r.variation || old.variant), category: String(r.category || old.category), price: Number(r.unit_price) || old.price, sku: String(r.sku || old.sku), barcode: String(r.sku || old.barcode), location_name: String(r.location || old.location_name || '') };
+          newProducts[idx] = { ...old, name: String(r.product || old.name), variant: varStr, category: String(r.category || old.category), price: Number(r.unit_price) || old.price, sku: String(r.sku || old.sku), barcode: String(r.sku || old.barcode), location_name: String(r.location || old.location_name || '') };
           updated++;
         }
       }
@@ -274,8 +276,29 @@ export default function App() {
       newExternal[internalId] = { stock: Number(r.stock) || 0, at: now };
       if (hasIds) newExternal[`${r.product_id}|${r.variation_id}|${locId}`] = { stock: Number(r.stock) || 0, at: now };
     }
+    let cleaned = 0;
+    {
+      const groups: Record<string, Product[]> = {};
+      for (const pr of newProducts) { const k = `${pr.sku}|${pr.location_id}`; (groups[k] = groups[k] || []).push(pr); }
+      const dropIds = new Set<string>();
+      for (const arr of Object.values(groups)) {
+        if (arr.length < 2) continue;
+        const hasProper = arr.some(pr => !isTemplateOnly(pr.variant));
+        if (!hasProper) continue;
+        for (const pr of arr) if (isTemplateOnly(pr.variant)) dropIds.add(pr.id);
+      }
+      if (dropIds.size > 0) {
+        cleaned = dropIds.size;
+        const kept = newProducts.filter(pr => !dropIds.has(pr.id));
+        newProducts.length = 0; newProducts.push(...kept);
+        for (const id of dropIds) {
+          for (const k of Object.keys(newStock)) if (k.startsWith(`${id}|`)) delete newStock[k];
+          delete newExternal[id];
+        }
+      }
+    }
     setProducts(newProducts); setStock(newStock); setExternalTotals(newExternal);
-    return { added, updated, skipped };
+    return { added, updated, skipped, cleaned };
   }
   async function testInoxLocal() {
     if (!inoxUser || !inoxPass) { alert('Mode Lokal Nyata: isi Username dan Password iNOX di Settings dulu (password hanya di memori sesi ini).'); return; }
@@ -285,7 +308,11 @@ export default function App() {
       if (!data.ok) { alert(`Uji koneksi nyata GAGAL: ${data.error || 'tidak diketahui'}${data.step ? ` (tahap: ${data.step})` : ''} — tidak ada status Terhubung yang dibuat.`); return; }
       setInoxConnected(true);
       const first = data.sample && data.sample[0] ? `${data.sample[0].product} — ${data.sample[0].variation} (${data.sample[0].sku}) stok ${data.sample[0].stock}` : '-';
-      alert(`Uji koneksi nyata BERHASIL: login ke iNOX diterima, feed Laporan Stok terbaca, recordsTotal = ${data.recordsTotal}. Contoh baris pertama: ${first}. Ini BUKAN demo — data ini benar-benar dari inox.my.id via server lokal.`);
+      const rawLines = Array.isArray(data.sample_raw) ? data.sample_raw.map((r: any, i: number) => {
+        if (Array.isArray(r)) return `Baris ${i + 1}: SKU=${r[0]} | Produk=${r[1]} | Varian mentah=${r[2]} | Kategori=${r[3]} | Lokasi=${r[4]}`;
+        return `Baris ${i + 1}: ${JSON.stringify(r)}`;
+      }).join('\n') : 'tidak tersedia (server lama — git pull dulu)';
+      alert(`Uji koneksi nyata BERHASIL: login ke iNOX diterima, feed Laporan Stok terbaca, recordsTotal = ${data.recordsTotal}. Contoh baris pertama: ${first}. Ini BUKAN demo — data ini benar-benar dari inox.my.id via server lokal.\n\nVarian MENTAH dari feed (belum diproses, untuk diagnosa):\n${rawLines}\n\nKalau varian mentah di atas masih "LCD" saja, berarti feed iNOX sendiri hanya mengembalikan "LCD" — screenshot-kan pesan ini dan kirim ke pengembang.`);
     } catch (e) { alert('Server lokal tidak bisa dihubungi. Jalankan dulu di CMD kedua: npm run inox-server di folder Apname, tunggu sampai muncul "listening on http://localhost:4001", lalu coba lagi.'); }
   }
   async function doSync() {
@@ -298,7 +325,7 @@ export default function App() {
         if (!data.ok) { alert(`Sync nyata GAGAL: ${data.error || 'tidak diketahui'}${data.step ? ` (tahap: ${data.step})` : ''} — data lama tidak diubah.`); return; }
         const result = importInoxRows(data.rows || []);
         setLastSync(Date.now()); setInoxConnected(true);
-        const lcdSet = new Set<string>(); for (const r of (data.rows || [])) { if (String(r.product || '').toUpperCase().includes('LCD') || String(r.variation || '').toUpperCase().includes('LCD')) { const g = variantAfterDash(String(r.variation || '')) || variantAfterDash(String(r.product || '')) || String(r.variation || ''); if (g) lcdSet.add(g); } }
+        const lcdSet = new Set<string>(); for (const r of (data.rows || [])) { if (String(r.product || '').toUpperCase().includes('LCD') || String(r.variation || '').toUpperCase().includes('LCD')) { const g = variantAfterDash(String(r.variation || '')) || String(r.variation || ''); if (g) lcdSet.add(g); } }
         const branchCountsSync: Record<string, number> = {}; for (const r of (data.rows || [])) { const loc = typeof r.location_id === 'number' ? r.location_id : null; const label = loc !== null ? branchLabelFor(loc, String(r.location || '')) : (typeof r.location === 'string' && r.location ? String(r.location).toUpperCase().replace(/[^A-Z0-9]+/g, '') || 'Lokasi tidak dikenali' : 'Lokasi tidak dikenali'); branchCountsSync[label] = (branchCountsSync[label] || 0) + 1; }
         setLastSyncReport({ at: Date.now(), recordsTotal: data.recordsTotal, fetched: (data.rows || []).length, added: result.added, updated: result.updated, skipped: result.skipped, branchSummary: Object.entries(branchCountsSync).map(([k, v]) => `${k}: ${v}`).join(', ') || '—', lcdVariants: [...lcdSet].sort() });
         const branchSummary = (() => { const counts: Record<string, number> = {}; for (const r of (data.rows || [])) { const loc = typeof r.location_id === 'number' ? r.location_id : null; const label = loc !== null ? branchLabelFor(loc, String(r.location || '')) : (typeof r.location === 'string' && r.location ? String(r.location).toUpperCase().replace(/[^A-Z0-9]+/g, '') || 'Lokasi tidak dikenali' : 'Lokasi tidak dikenali'); counts[label] = (counts[label] || 0) + 1; } return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'; })(); alert(`Sync nyata BERHASIL: ${data.recordsTotal} baris dari iNOX, terkumpul ${(data.rows || []).length}. Per cabang di feed: ${branchSummary}. Produk baru: ${result.added}, master diperbarui: ${result.updated}, dilewati (tanpa SKU/varian/lokasi): ${result.skipped}. Stok per rak TIDAK diubah — produk baru masuk Belum Ditempatkan, produk lama hanya master-nya diperbarui. Total eksternal per produk bisa dilihat di Stok & Master.${result.added === 0 && result.updated === 0 ? ' PERINGATAN: tidak ada produk yang masuk sama sekali — kemungkinan format feed berubah; kirim pesan ini + jumlah dilewati ke pengembang.' : ''} Kalau di Stok & Master masih hanya KWSN, cek filter cabang di atas tabel (tombol cabang) dan filter cabang di header — akun Admin/Karyawan hanya bisa melihat cabangnya sendiri, login Super Admin untuk semua cabang.`);
@@ -537,7 +564,21 @@ function VisualMap({ allRacks, branches, stock, products, canEdit, onUpdateRack,
   const svgRef = useRef<SVGSVGElement | null>(null); const mapWrapRef = useRef<HTMLDivElement | null>(null);
   const suppressClick = useRef(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  // ZOOM ALA GOOGLE MAPS (koreksi 2026-10-25): jendela denah UKURANNYA TETAP
+  // (lebar 100% kartu, rasio 700:300) — yang berubah adalah viewBox SVG.
+  // Zoom in = viewBox mengecil di sekitar tengah pandangan -> rak tampak membesar,
+  // jendela tidak ikut membesar dan tidak memunculkan scrollbar baru.
+  // Zoom out = viewBox membesar -> rak tampak mengecil, jendela tetap.
+  // Geser area kosong denah = pan (menggeser viewBox), seperti drag di Maps.
+  const [view, setView] = useState({ x: 0, y: 0, w: 700, h: 300 });
+  const zoom = 700 / view.w;
+  const panRef = useRef<{ startX: number; startY: number; startViewX: number; startViewY: number; moved: boolean } | null>(null);
+  const setZoomCentered = (newZoom: number) => {
+    const z = Math.min(3, Math.max(0.5, Math.round(newZoom * 4) / 4));
+    const cx = Math.min(900, Math.max(-200, view.x + view.w / 2));
+    const cy = Math.min(400, Math.max(-100, view.y + view.h / 2));
+    setView({ x: cx - (700 / z) / 2, y: cy - (300 / z) / 2, w: 700 / z, h: 300 / z });
+  };
   const [newName, setNewName] = useState('Rak C'); const [newType, setNewType] = useState<'normal' | 'retur'>('normal');
   const [newLevels, setNewLevels] = useState('Level 1, Level 2, Level 3'); const [newW, setNewW] = useState(160); const [newH, setNewH] = useState(90);
   const [editName, setEditName] = useState(''); const [editW, setEditW] = useState(160); const [editH, setEditH] = useState(90); const [editRot, setEditRot] = useState(0);
@@ -548,7 +589,7 @@ function VisualMap({ allRacks, branches, stock, products, canEdit, onUpdateRack,
   useEffect(() => { if (sel) { setEditName(sel.name); setEditW(sel.w); setEditH(sel.h); setEditRot(sel.rot); setEditLevels([...sel.levels]); } }, [sel?.id]);
   useEffect(() => { if (!branches.some(b => b.id === visualBranch)) setVisualBranch(branches[0]?.id || 'KWSN'); }, [branches]);
   useEffect(() => { if (initialBranch && branches.some(b => b.id === initialBranch)) setVisualBranch(initialBranch); }, [initialBranch, branches]);
-  const toSvg = (e: React.PointerEvent) => { const rect = svgRef.current?.getBoundingClientRect(); if (!rect) return { x: 0, y: 0 }; return { x: (e.clientX - rect.left) * (700 / rect.width), y: (e.clientY - rect.top) * (300 / rect.height) }; };
+  const toSvg = (e: React.PointerEvent) => { const rect = svgRef.current?.getBoundingClientRect(); if (!rect) return { x: 0, y: 0 }; return { x: view.x + (e.clientX - rect.left) * (view.w / rect.width), y: view.y + (e.clientY - rect.top) * (view.h / rect.height) }; };
   const onDown = (e: React.PointerEvent, r: Rack) => {
     if (!canEdit) return;
     const p = toSvg(e);
@@ -556,14 +597,31 @@ function VisualMap({ allRacks, branches, stock, products, canEdit, onUpdateRack,
     setDragId(r.id); setMoved(false);
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   };
+  const onSvgDown = (e: React.PointerEvent) => {
+    // Klik di dalam <g> rak = drag rak (ditangani onDown rak), bukan pan.
+    if ((e.target as Element).closest?.('g')) return;
+    panRef.current = { startX: e.clientX, startY: e.clientY, startViewX: view.x, startViewY: view.y, moved: false };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
   const onMove = (e: React.PointerEvent) => {
+    const pn = panRef.current;
+    if (pn) {
+      const rect = svgRef.current?.getBoundingClientRect(); if (!rect) return;
+      const dx = (e.clientX - pn.startX) * (view.w / rect.width);
+      const dy = (e.clientY - pn.startY) * (view.h / rect.height);
+      if (Math.abs(e.clientX - pn.startX) + Math.abs(e.clientY - pn.startY) > 5) pn.moved = true;
+      const cx = Math.min(900, Math.max(-200, pn.startViewX + view.w / 2 - dx));
+      const cy = Math.min(400, Math.max(-100, pn.startViewY + view.h / 2 - dy));
+      setView(prev => ({ ...prev, x: cx - prev.w / 2, y: cy - prev.h / 2 }));
+      return;
+    }
     const d = dragRef.current; if (!d) return;
     const p = toSvg(e);
     if (Math.abs(p.x - d.startX) + Math.abs(p.y - d.startY) > 5) setMoved(true);
     const nx = Math.round((p.x - d.offX) / 10) * 10; const ny = Math.round((p.y - d.offY) / 10) * 10;
     onUpdateRack(d.id, { x: Math.max(0, nx), y: Math.max(0, ny) });
   };
-  const onUp = () => { if (moved) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 50); } dragRef.current = null; setDragId(null); };
+  const onUp = () => { if (moved || panRef.current?.moved) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 50); } dragRef.current = null; setDragId(null); panRef.current = null; };
   const saveEdit = () => {
     if (!sel) return;
     if (!editName.trim()) { alert('Nama rak tidak boleh kosong.'); return; }
@@ -578,10 +636,9 @@ function VisualMap({ allRacks, branches, stock, products, canEdit, onUpdateRack,
   return (<Card><CardHeader><CardTitle>Visual Gudang — Denah Atas (2D, SVG)</CardTitle><CardDescription>{canEdit ? 'Mode edit: denah menampilkan SATU cabang agar rak tidak menumpuk. Geser balok rak (snap 10px), rotate, atau kelola rak di bawah. Menggeser visual tidak mengubah stok.' : 'Mode lihat saja (Karyawan): pilih cabang, klik rak untuk detail, lalu buat sesi opname per rak atau per level.'}</CardDescription></CardHeader><CardContent className="space-y-4">
     <div className="flex flex-wrap items-end gap-3"><FieldSelect label="Cabang yang ditampilkan" value={visualBranch} onChange={setVisualBranch} options={branches.map(b => ({ value: b.id, label: b.name }))} />{canEdit && <Button onClick={() => setShowCreate(v => !v)}><Plus className="size-4" /> {showCreate ? 'Tutup Form Rak Baru' : 'Tambah Rak'}</Button>}</div>
     {canEdit && showCreate && (<Card><CardContent className="grid gap-3 pt-6 md:grid-cols-3"><div><label className="text-sm font-medium">Nama rak</label><Input className="mt-1" value={newName} onChange={e => setNewName(e.target.value)} /></div><FieldSelect label="Tipe" value={newType} onChange={(v) => setNewType(v as 'normal' | 'retur')} options={[{ value: 'normal', label: 'Normal' }, { value: 'retur', label: 'Retur' }]} /><div><label className="text-sm font-medium">Level (pisah koma)</label><Input className="mt-1" value={newLevels} onChange={e => setNewLevels(e.target.value)} /></div><div><label className="text-sm font-medium">Lebar (w)</label><Input className="mt-1" type="number" value={newW} onChange={e => setNewW(Number(e.target.value))} /></div><div><label className="text-sm font-medium">Tinggi (h)</label><Input className="mt-1" type="number" value={newH} onChange={e => setNewH(Number(e.target.value))} /></div><div className="flex items-end"><Button onClick={() => { onAddRack(visualBranch, newName, newType, newLevels.split(','), newW, newH); setShowCreate(false); }}>Simpan Rak Baru</Button></div></CardContent></Card>)}
-    <div ref={mapWrapRef} className="overflow-auto" style={{ borderRadius: 12 }}>
-    <div style={{ position: 'relative', width: 700 * zoom, height: 300 * zoom }}>
-    <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 16px)', alignItems: 'center', gap: 4, background: 'var(--card)', border: '2px solid var(--accent)', borderRadius: 10, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}><span className="text-sm font-medium" style={{ paddingLeft: 4 }}>Zoom denah:</span><Button variant="outline" size="sm" title="Perkecil denah" aria-label="Zoom Out denah" disabled={zoom <= 0.5} onClick={() => setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 4) / 4))}><ZoomOut className="size-4" /> Zoom Out</Button><span className="text-sm font-medium" style={{ minWidth: 44, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><Button variant="outline" size="sm" title="Perbesar denah" aria-label="Zoom In denah" disabled={zoom >= 3} onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 4) / 4))}><ZoomIn className="size-4" /> Zoom In</Button><Button variant="default" size="sm" title="Fit to Screen: sesuaikan denah selebar area ini" aria-label="Fit to Screen denah" onClick={() => { const w = mapWrapRef.current?.clientWidth; setZoom(w ? Math.min(3, Math.max(0.5, Math.round((w / 700) * 4) / 4)) : 1); }}><Maximize2 className="size-4" /> Fit to Screen</Button></div>
-    <svg ref={svgRef} width={700 * zoom} height={300 * zoom} viewBox="0 0 700 300" style={{ display: 'block', background: 'var(--muted)', borderRadius: 12, touchAction: 'none', width: 700 * zoom, maxWidth: 'none' }} onPointerMove={onMove} onPointerUp={onUp}>{shown.map(r => { const total = products.reduce((a, p) => a + r.levels.reduce((b, lv) => b + (stock[`${p.id}|${r.id}|${lv}`] || 0), 0), 0); return (<g key={r.id} transform={`translate(${r.x} ${r.y}) rotate(${r.rot} ${r.w / 2} ${r.h / 2})`} onPointerDown={e => onDown(e, r)} onClick={() => { if (suppressClick.current) return; setSelId(r.id); }} style={{ cursor: canEdit ? 'grab' : 'pointer' }}><rect width={r.w} height={r.h} rx="10" fill={r.type === 'retur' ? '#f97316' : 'var(--card)'} stroke={dragId === r.id ? 'var(--accent)' : 'var(--border)'} strokeWidth="2" /><text x={r.w / 2} y="28" textAnchor="middle" fontSize="14" fontWeight="700" fill={r.type === 'retur' ? '#fff' : 'var(--foreground)'}>{r.name}{r.type === 'retur' ? ' — RETUR' : ''}</text><text x={r.w / 2} y="50" textAnchor="middle" fontSize="12" fill={r.type === 'retur' ? '#fff' : 'var(--muted-foreground)'}>{r.levels.length} level • {total} unit</text><text x={r.w / 2} y="70" textAnchor="middle" fontSize="11" fill={r.type === 'retur' ? '#fff' : 'var(--muted-foreground)'}>rot {r.rot}° • {r.branchId}</text></g>); })}</svg></div></div><p className="text-xs text-muted-foreground">Tombol zoom sekarang benar-benar DI DALAM jendela denah: menempel di pojok kanan atas area abu-abu denah itu sendiri (bukan di luar denah / di area putih kartu di sekelilingnya), dan ikut bergeser bersama denah saat di-scroll atau di-zoom. Zoom Out / Zoom In mengubah besar denah 50%–300%, Fit to Screen menyesuaikan denah selebar area ini.</p>
+    <div ref={mapWrapRef} style={{ position: 'relative', width: '100%', aspectRatio: '700 / 300', overflow: 'hidden', borderRadius: 12, background: 'var(--muted)' }}>
+    <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 16px)', alignItems: 'center', gap: 4, background: 'var(--card)', border: '2px solid var(--accent)', borderRadius: 10, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}><span className="text-sm font-medium" style={{ paddingLeft: 4 }}>Zoom denah:</span><Button variant="outline" size="sm" title="Perkecil denah" aria-label="Zoom Out denah" disabled={zoom <= 0.5} onClick={() => setZoomCentered(zoom - 0.25)}><ZoomOut className="size-4" /> Zoom Out</Button><span className="text-sm font-medium" style={{ minWidth: 44, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><Button variant="outline" size="sm" title="Perbesar denah" aria-label="Zoom In denah" disabled={zoom >= 3} onClick={() => setZoomCentered(zoom + 0.25)}><ZoomIn className="size-4" /> Zoom In</Button><Button variant="default" size="sm" title="Fit to Screen: sesuaikan denah selebar area ini" aria-label="Fit to Screen denah" onClick={() => setView({ x: 0, y: 0, w: 700, h: 300 })}><Maximize2 className="size-4" /> Fit to Screen</Button></div>
+    <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', background: 'var(--muted)', touchAction: 'none' }} onPointerDown={onSvgDown} onPointerMove={onMove} onPointerUp={onUp}><rect x={view.x} y={view.y} width={view.w} height={view.h} fill="var(--muted)" />{shown.map(r => { const total = products.reduce((a, p) => a + r.levels.reduce((b, lv) => b + (stock[`${p.id}|${r.id}|${lv}`] || 0), 0), 0); return (<g key={r.id} transform={`translate(${r.x} ${r.y}) rotate(${r.rot} ${r.w / 2} ${r.h / 2})`} onPointerDown={e => onDown(e, r)} onClick={() => { if (suppressClick.current) return; setSelId(r.id); }} style={{ cursor: canEdit ? 'grab' : 'pointer' }}><rect width={r.w} height={r.h} rx="10" fill={r.type === 'retur' ? '#f97316' : 'var(--card)'} stroke={dragId === r.id ? 'var(--accent)' : 'var(--border)'} strokeWidth="2" /><text x={r.w / 2} y="28" textAnchor="middle" fontSize="14" fontWeight="700" fill={r.type === 'retur' ? '#fff' : 'var(--foreground)'}>{r.name}{r.type === 'retur' ? ' — RETUR' : ''}</text><text x={r.w / 2} y="50" textAnchor="middle" fontSize="12" fill={r.type === 'retur' ? '#fff' : 'var(--muted-foreground)'}>{r.levels.length} level • {total} unit</text><text x={r.w / 2} y="70" textAnchor="middle" fontSize="11" fill={r.type === 'retur' ? '#fff' : 'var(--muted-foreground)'}>rot {r.rot}° • {r.branchId}</text></g>); })}</svg></div><p className="text-xs text-muted-foreground">Zoom ala Google Maps: jendela denah ukurannya TETAP (tidak ikut membesar/mengecil, tidak menambah scrollbar) — yang membesar/mengecil adalah ISI denah (balok rak) di dalamnya. Tombol tetap di pojok kanan atas di dalam jendela denah. Zoom Out / Zoom In mengubah pembesaran 50%–300% di sekitar tengah pandangan, Fit menampilkan seluruh denah lagi, dan geser area kosong denah untuk menggeser pandangan (pan) seperti drag di Maps.</p>
     {sel && (<div className="space-y-3"><div className="flex flex-wrap items-center gap-2"><b>{sel.branchId} — {sel.name}{sel.type === 'retur' ? ' (RETUR)' : ''}</b>{canEdit && <Button variant="outline" size="sm" onClick={() => onUpdateRack(sel.id, { rot: (sel.rot + 90) % 360 })}><RotateCw className="size-4" /> Rotate 90°</Button>}<Button onClick={() => onOpenRack(sel.id)}>Opname Rak Ini</Button><Button variant="outline" size="sm" onClick={() => printLabels(sel.levels.map(lv => labelFor(sel, lv)))}><Printer className="size-4" /> Cetak Label Rak</Button>{canEdit && <Button variant="destructive" size="sm" onClick={() => { if (!confirm(`Hapus rak ${sel.name}? Rak dengan stok > 0 ditolak.`)) return; const msg = onDeleteRack(sel.id); if (msg !== 'OK') alert(msg); else setSelId(null); }}><Trash2 className="size-4" /> Hapus Rak</Button>}</div>
       {canEdit && (<Card><CardContent className="grid gap-3 pt-6 md:grid-cols-4"><div><label className="text-sm font-medium">Nama rak</label><Input className="mt-1" value={editName} onChange={e => setEditName(e.target.value)} /></div><div><label className="text-sm font-medium">Lebar (w)</label><Input className="mt-1" type="number" value={editW} onChange={e => setEditW(Number(e.target.value))} /></div><div><label className="text-sm font-medium">Tinggi (h)</label><Input className="mt-1" type="number" value={editH} onChange={e => setEditH(Number(e.target.value))} /></div><FieldSelect label="Rotate" value={String(editRot)} onChange={(v) => setEditRot(Number(v))} options={['0', '90', '180', '270'].map(x => ({ value: x, label: `${x}°` }))} /><div className="md:col-span-4"><label className="text-sm font-medium">Level (ubah nama di sini — stok ikut pindah ke nama baru; hapus level ditolak bila stok &gt; 0)</label>{editLevels.map((lv, i) => (<div key={i} className="mt-2 flex gap-2"><Input value={lv} onChange={e => setEditLevels(prev => prev.map((x, j) => j === i ? e.target.value : x))} /><Button variant="outline" size="sm" onClick={() => { const msg = onDeleteLevel(sel.id, sel.levels[i]); if (msg !== 'OK') alert(msg); else setEditLevels(prev => prev.filter((_, j) => j !== i)); }}>Hapus Level</Button></div>))}<Button variant="outline" size="sm" className="mt-2" onClick={() => setEditLevels(prev => [...prev, `Level ${prev.length + 1}`])}>+ Tambah Level</Button></div><div><Button onClick={saveEdit}>Simpan Perubahan Rak</Button></div></CardContent></Card>)}
       <div>{sel.levels.map(lv => { const tot = products.reduce((a, p) => a + (stock[`${p.id}|${sel.id}|${lv}`] || 0), 0); return (<Card key={lv} className="mt-2"><CardContent className="flex flex-wrap items-center justify-between gap-2 py-3"><span>{lv} — {tot} unit</span><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => printLabels([labelFor(sel, lv)])}><Printer className="size-4" /> Label</Button><Button size="sm" onClick={() => onOpenLevel(sel.id, lv)}>Opname Level Ini</Button></div></CardContent></Card>); })}</div></div>)}

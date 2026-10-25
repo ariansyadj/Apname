@@ -277,7 +277,7 @@ function parseRow(row) {
     const vidMatch = actionHtml.match(/variation_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/variations\/(\d+)/i);
     const variationRaw = stripHtml(row[3]);
     const productRaw = stripHtml(row[2]);
-    const variation = variantAfterDash(variationRaw) || variantAfterDash(productRaw) || variationRaw;
+    const variation = variantAfterDash(variationRaw) || variationRaw;
     return {
       sku: stripHtml(row[1]),
       product: productRaw,
@@ -300,7 +300,7 @@ function parseRow(row) {
   if (row && typeof row === 'object') {
     const variationRawObj = stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? '');
     const productRawObj = stripHtml(row.product);
-    const variationObj = variantAfterDash(variationRawObj) || variantAfterDash(productRawObj) || variationRawObj;
+    const variationObj = variantAfterDash(variationRawObj) || variationRawObj;
     return {
       sku: stripHtml(row.sku),
       product: productRawObj,
@@ -463,14 +463,45 @@ async function fetchFeedPage(jarPath, { start, length, draw, location_id }) {
   return { total: json.recordsTotal, rows: json.data.map(parseRow).filter(Boolean) };
 }
 
+function sanitizeRawCell(v) {
+  if (typeof v === 'string') return v.slice(0, 300);
+  if (v && typeof v === 'object') return JSON.stringify(v).slice(0, 300);
+  return v;
+}
+function sanitizeRawRow(row) {
+  // Kolom aksi (row[0]) disembunyikan — berisi HTML tombol + kemungkinan ID di URL.
+  // Kolom lain dipertahankan APA ADANYA (termasuk HTML-nya) supaya bisa dilihat
+  // apakah kolom Varian mentah itu "LCD-JK", "LCD", atau HTML lain.
+  if (Array.isArray(row)) return row.slice(1).map(sanitizeRawCell);
+  if (row && typeof row === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(row)) { if (/action/i.test(k)) continue; out[k] = sanitizeRawCell(v); }
+    return out;
+  }
+  return row;
+}
+async function fetchRawSample(jarPath, { location_id }) {
+  const params = feedParams({ start: 0, length: 5, draw: 1, location_id });
+  const text = (await curlRequest({
+    url: `${BASE}/reports/stock-report?${params.toString()}`,
+    jarPath,
+    headers: { Accept: 'application/json, text/javascript, */*; q=0.01', 'X-Requested-With': 'XMLHttpRequest', Referer: `${BASE}/reports/stock-report` },
+  })).body;
+  const json = JSON.parse(text.trim());
+  if (!Array.isArray(json.data)) throw { step: 'feed', error: 'Struktur feed tidak sesuai (tidak ada data[]).' };
+  return json.data.slice(0, 5).map(sanitizeRawRow);
+}
 async function testLogin({ username, password, location_id }) {
   return withJar(async (jarPath) => {
     const form = await loginSession(jarPath, username, password);
     const first = await fetchFeedPage(jarPath, { start: 0, length: 25, draw: 1, location_id });
+    let sampleRaw = null;
+    try { sampleRaw = await fetchRawSample(jarPath, { location_id }); } catch { sampleRaw = null; }
     return {
       recordsTotal: first.total,
       fetched: first.rows.length,
       sample: first.rows.slice(0, 3),
+      sample_raw: sampleRaw,
       loginFields: { usernameField: form.usernameField, hasToken: !!form.token },
     };
   });
