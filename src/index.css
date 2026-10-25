@@ -146,3 +146,17 @@
     cursor: pointer;
   }
 }
+
+/* === MOBILE (HP) === */
+@media (max-width: 640px) {
+  /* Tabel: huruf sedikit lebih kecil + padding lebih rapat, supaya lebih
+     banyak kolom muat sebelum harus geser ke samping. Geser tabel tetap
+     horizontal (overflow-x-auto di komponen Table), bukan kolom dipaksa
+     menyempit sampai teksnya terpotong. */
+  table[data-slot="table"] { font-size: 13px; }
+  th[data-slot="table-head"], td[data-slot="table-cell"] { padding: 6px 8px; }
+  /* Scroll tabel & dialog terasa mulus di HP (momentum scroll iOS). */
+  [data-slot="table-container"] { -webkit-overflow-scrolling: touch; }
+  /* Input 16px di HP: mencegah iOS otomatis zoom saat kolom diketik. */
+  input, select, textarea { font-size: 16px; }
+}

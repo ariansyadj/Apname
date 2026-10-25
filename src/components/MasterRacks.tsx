@@ -9,6 +9,7 @@ import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList, Printer, Eye, File
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { printLabels, type LabelItem } from '../lib/labels';
+import { styleReportSheet } from '../lib/reportWidths';
 
 type Props = {
   allRacks: Rack[];
@@ -56,6 +57,9 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
     ws.addRow([]);
     ws.addRow(['SKU', 'Produk', 'Varian', 'Kategori', 'Stok di Level Ini', 'Harga Jual', 'Total Nilai']);
     items.forEach((x) => { ws.addRow([x.pr.sku, x.pr.name, x.pr.variant, x.pr.category, x.qty, x.pr.price, x.qty * x.pr.price]); });
+    // Header tabel ada di baris 7 (setelah 5 baris info + 1 baris kosong).
+    // Lebar kolom memakai peta yang sama dengan Excel laporan opname.
+    styleReportSheet(ws, 7);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a');

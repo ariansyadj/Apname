@@ -55,11 +55,15 @@ export function printReport(meta: ReportMeta, rows: ReportRow[]): void {
     )
     .join('');
   win.document.write(`<html><head><title>Laporan Opname ${esc(meta.id)} — Apname</title><style>
+    @page{size:landscape;margin:12mm}
     body{font-family:Arial,sans-serif;margin:16px;color:#111}
     h1{font-size:20px;margin:0 0 4px} h2{font-size:14px;margin:16px 0 6px}
     .meta{font-size:13px;color:#333;line-height:1.6}
-    table{border-collapse:collapse;width:100%;font-size:12px}
-    th,td{border:1px solid #999;padding:5px 6px;text-align:left}
+    /* LEBAR KOLOM KONSISTEN: table-layout fixed + colgroup di bawah, jadi
+       kolom yang sama selalu sama lebarnya, tidak mengembang/menyusut
+       mengikuti isi baris terpanjang. Persentase ini total 100%. */
+    table{border-collapse:collapse;width:100%;font-size:11px;table-layout:fixed}
+    th,td{border:1px solid #999;padding:4px 5px;text-align:left;overflow-wrap:break-word;vertical-align:top}
     th{background:#eee}
     .note{font-size:12px;color:#555;margin:8px 0}
     @media print{ .note,.noprint{display:none} body{margin:0} }
@@ -72,7 +76,7 @@ export function printReport(meta: ReportMeta, rows: ReportRow[]): void {
     </div>`);
   win.document.write(`<h2>Detail Hasil Scan (sama dengan sheet Detail Opname di .xlsx)</h2>
     <p class="note">Fisik = total jumlah hasil scan per produk/rak/level di sesi ini. Snapshot = stok sistem saat sesi dibuat. Selisih = Fisik − Stok Sistem Disesuaikan.</p>
-    <table><thead><tr><th>Produk</th><th>Varian</th><th>SKU</th><th>Rak</th><th>Level</th><th>Snapshot</th><th>Mut. Masuk</th><th>Mut. Keluar</th><th>Stok Disesuaikan</th><th>Fisik (Hasil Scan)</th><th>Selisih</th><th>Status</th><th>Scan Terakhir</th></tr></thead><tbody>${body || '<tr><td colspan="13">Belum ada baris di laporan ini.</td></tr>'}</tbody></table>`);
+    <table><colgroup><col style="width:16%"><col style="width:11%"><col style="width:10%"><col style="width:5%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:5%"><col style="width:6%"><col style="width:8%"></colgroup><thead><tr><th>Produk</th><th>Varian</th><th>SKU</th><th>Rak</th><th>Level</th><th>Snapshot</th><th>Mut. Masuk</th><th>Mut. Keluar</th><th>Stok Disesuaikan</th><th>Fisik (Hasil Scan)</th><th>Selisih</th><th>Status</th><th>Scan Terakhir</th></tr></thead><tbody>${body || '<tr><td colspan="13">Belum ada baris di laporan ini.</td></tr>'}</tbody></table>`);
   win.document.write('</body></html>');
   win.document.close();
   win.focus();
