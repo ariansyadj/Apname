@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList, Printer } from 'lucide-react';
+import { printLabels, type LabelItem } from '../lib/labels';
 
 type Props = {
   allRacks: Rack[];
@@ -43,6 +44,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
   }, [branches, branchId]);
 
   const shown = allRacks.filter((r) => r.branchId === branchId);
+  const labelFor = (r: Rack, lv: string): LabelItem => ({ branchId: r.branchId, branchName: branches.find((b) => b.id === r.branchId)?.name || r.branchId, rackId: r.id, rackName: r.name, rackType: r.type, level: lv });
   const rackTotal = (rid: string, levels: string[]) =>
     products.reduce((a, p) => a + levels.reduce((b, lv) => b + (stock[`${p.id}|${rid}|${lv}`] || 0), 0), 0);
   const levelTotal = (rid: string, lv: string) =>
@@ -135,6 +137,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
               <div className="ml-auto flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={() => onGoVisual(r.branchId)}><MapIcon className="size-4" /> Denah</Button>
                 <Button size="sm" onClick={() => onOpenRack(r.id)}><ClipboardList className="size-4" /> Opname Rak Ini</Button>
+                <Button variant="outline" size="sm" onClick={() => printLabels(r.levels.map((lv) => labelFor(r, lv)))}><Printer className="size-4" /> Cetak Label Rak</Button>
                 {canEdit && <Button variant="outline" size="sm" onClick={() => startEdit(r)}><Pencil className="size-4" /> Edit Rak</Button>}
                 {canEdit && (
                   <Button variant="destructive" size="sm" onClick={() => { if (!confirm(`Hapus rak ${r.name}? Rak dengan stok > 0 ditolak.`)) return; const msg = onDeleteRack(r.id); if (msg !== 'OK') alert(msg); }}>
@@ -176,7 +179,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
               {r.levels.map((lv) => (
                 <div key={lv} className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
                   <span>{lv} — {levelTotal(r.id, lv)} unit</span>
-                  <Button size="sm" onClick={() => onOpenLevel(r.id, lv)}>Opname Level Ini Saja</Button>
+                  <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => printLabels([labelFor(r, lv)])}><Printer className="size-4" /> Label</Button><Button size="sm" onClick={() => onOpenLevel(r.id, lv)}>Opname Level Ini Saja</Button></div>
                 </div>
               ))}
             </div>
