@@ -52,7 +52,7 @@ export function AppSidebar({
       )}
     >
       {/* SidebarHeader */}
-      <div className="flex items-center gap-2 px-3 py-3">
+      <div className={collapsed ? "flex flex-col items-center gap-2 px-2 py-3" : "flex items-center gap-2 px-3 py-3"}>
         <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Package className="size-5" />
         </span>
@@ -62,7 +62,7 @@ export function AppSidebar({
             <p className="truncate text-xs text-muted-foreground">Opname Per Rak</p>
           </div>
         )}
-        <div className="ml-auto flex shrink-0 gap-1">
+        <div className={collapsed ? "flex shrink-0 gap-1" : "ml-auto flex shrink-0 gap-1"}>
           <Button
             variant="ghost"
             size="icon"
