@@ -1,6 +1,6 @@
 export type Branch = { id: string; name: string; location_id: number; location_name: string };
 export type Rack = { id: string; branchId: string; name: string; type: 'normal' | 'retur'; levels: string[]; x: number; y: number; w: number; h: number; rot: number };
-export type Product = { id: string; sku: string; name: string; variant: string; category: string; price: number; product_id: number; variation_id: number; location_id: number; barcode: string };
+export type Product = { id: string; sku: string; name: string; variant: string; category: string; price: number; product_id: number; variation_id: number; location_id: number; barcode: string; location_name?: string };
 export const BRANCHES: Branch[] = [
   { id: 'KWSN', name: 'KWSN (MEGA MAS)', location_id: 6, location_name: 'KWSN' },
   { id: 'MDC', name: 'MDC', location_id: 1, location_name: 'MDC' },
