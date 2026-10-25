@@ -248,14 +248,11 @@ function parseNum(v) {
 // "LCD-BPE Black" -> "BPE Black", "BATT-BR P" -> "BR P",
 // "LCD-JK Soft Oled" -> "JK Soft Oled". Bukan prefixnya saja ("LCD"),
 // dan bukan token pertama saja ("BPE"). Tanpa "-" dikembalikan null.
-function variantAfterDash(text) {
-  if (!text) return null;
-  const str = String(text).trim();
-  const idx = str.indexOf('-');
-  if (idx < 0) return null;
-  const after = str.slice(idx + 1).trim();
-  return after ? after : null;
-}
+// VARIAN DITULIS LENGKAP (koreksi Ucok 2026-10-25, membatalkan aturan singkat sebelumnya):
+// varian TIDAK dipotong sama sekali. LCD-JK tetap LCD-JK, LCD-BPE Black tetap
+// LCD-BPE Black, BATT-BR P tetap BATT-BR P, persis seperti di iNOX.
+// Pemotongan sebelumnya (LCD saja / JK saja) terbukti merusak: LCD saja tidak
+// bisa dibedakan, dan JK saja kehilangan konteksnya.
 function parseRow(row) {
   if (Array.isArray(row)) {
     // PENTING (bug cabang tidak terdeteksi, 2026-10-25): baris DataTables
@@ -277,7 +274,7 @@ function parseRow(row) {
     const vidMatch = actionHtml.match(/variation_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/variations\/(\d+)/i);
     const variationRaw = stripHtml(row[3]);
     const productRaw = stripHtml(row[2]);
-    const variation = variantAfterDash(variationRaw) || variationRaw;
+    const variation = variationRaw;
     return {
       sku: stripHtml(row[1]),
       product: productRaw,
@@ -300,7 +297,7 @@ function parseRow(row) {
   if (row && typeof row === 'object') {
     const variationRawObj = stripHtml(row.product_variation ?? row.variation_name ?? row.variation ?? '');
     const productRawObj = stripHtml(row.product);
-    const variationObj = variantAfterDash(variationRawObj) || variationRawObj;
+    const variationObj = variationRawObj;
     return {
       sku: stripHtml(row.sku),
       product: productRawObj,
