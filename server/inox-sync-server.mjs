@@ -384,7 +384,7 @@ async function loginSession(jarPath, username, password) {
   return form;
 }
 
-function feedParams({ start, length, draw, location_id }) {
+function feedParams({ start, length, draw, location_id, search }) {
   const params = new URLSearchParams();
   params.set('draw', String(draw));
   const columns = [
@@ -413,7 +413,7 @@ function feedParams({ start, length, draw, location_id }) {
   params.set('order[2][dir]', 'asc');
   params.set('start', String(start));
   params.set('length', String(length));
-  params.set('search[value]', '');
+  params.set('search[value]', search || '');
   params.set('search[regex]', 'false');
   params.set('location_id', location_id ? String(location_id) : '');
   params.set('category_id', '');
@@ -425,8 +425,8 @@ function feedParams({ start, length, draw, location_id }) {
   return params;
 }
 
-async function fetchFeedPage(jarPath, { start, length, draw, location_id }) {
-  const params = feedParams({ start, length, draw, location_id });
+async function fetchFeedPage(jarPath, { start, length, draw, location_id, search }) {
+  const params = feedParams({ start, length, draw, location_id, search });
   let text;
   try {
     text = (await curlRequest({
@@ -477,6 +477,21 @@ function sanitizeRawRow(row) {
   }
   return row;
 }
+async function fetchLcdSample(jarPath, { location_id }) {
+  // Diagnosa varian LCD (2026-10-26): 5 baris pertama feed adalah adapter
+  // (product_variation DUMMY), jadi tidak membuktikan apa-apa soal LCD.
+  // Ambil 5 baris pertama yang cocok pencarian 'Lcd' di server iNOX —
+  // ini baris LCD yang sebenarnya, dengan semua field mentahnya.
+  const params = feedParams({ start: 0, length: 5, draw: 2, location_id, search: 'Lcd' });
+  const text = (await curlRequest({
+    url: `${BASE}/reports/stock-report?${params.toString()}`,
+    jarPath,
+    headers: { Accept: 'application/json, text/javascript, */*; q=0.01', 'X-Requested-With': 'XMLHttpRequest', Referer: `${BASE}/reports/stock-report` },
+  })).body;
+  const json = JSON.parse(text.trim());
+  if (!Array.isArray(json.data)) throw { step: 'feed', error: 'Struktur feed tidak sesuai (tidak ada data[]).' };
+  return { rows: json.data.slice(0, 5).map(sanitizeRawRow), total: typeof json.recordsFiltered === 'number' ? json.recordsFiltered : json.data.length };
+}
 async function fetchRawSample(jarPath, { location_id }) {
   const params = feedParams({ start: 0, length: 5, draw: 1, location_id });
   const text = (await curlRequest({
@@ -494,11 +509,15 @@ async function testLogin({ username, password, location_id }) {
     const first = await fetchFeedPage(jarPath, { start: 0, length: 25, draw: 1, location_id });
     let sampleRaw = null;
     try { sampleRaw = await fetchRawSample(jarPath, { location_id }); } catch { sampleRaw = null; }
+    let sampleLcdRaw = null; let sampleLcdTotal = null;
+    try { const lcd = await fetchLcdSample(jarPath, { location_id }); sampleLcdRaw = lcd.rows; sampleLcdTotal = lcd.total; } catch { sampleLcdRaw = null; sampleLcdTotal = null; }
     return {
       recordsTotal: first.total,
       fetched: first.rows.length,
       sample: first.rows.slice(0, 3),
       sample_raw: sampleRaw,
+      sample_lcd_raw: sampleLcdRaw,
+      sample_lcd_total: sampleLcdTotal,
       loginFields: { usernameField: form.usernameField, hasToken: !!form.token },
     };
   });

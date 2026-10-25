@@ -312,7 +312,13 @@ export default function App() {
         if (Array.isArray(r)) return `Baris ${i + 1}: SKU=${r[0]} | Produk=${r[1]} | Varian mentah=${r[2]} | Kategori=${r[3]} | Lokasi=${r[4]}`;
         return `Baris ${i + 1}: ${JSON.stringify(r)}`;
       }).join('\n') : 'tidak tersedia (server lama — git pull dulu)';
-      alert(`Uji koneksi nyata BERHASIL: login ke iNOX diterima, feed Laporan Stok terbaca, recordsTotal = ${data.recordsTotal}. Contoh baris pertama: ${first}. Ini BUKAN demo — data ini benar-benar dari inox.my.id via server lokal.\n\nVarian MENTAH dari feed (belum diproses, untuk diagnosa):\n${rawLines}\n\nKalau varian mentah di atas masih "LCD" saja, berarti feed iNOX sendiri hanya mengembalikan "LCD" — screenshot-kan pesan ini dan kirim ke pengembang.`);
+      const lcdLines = Array.isArray(data.sample_lcd_raw) ? data.sample_lcd_raw.map((r: any, i: number) => {
+        if (Array.isArray(r)) return `Baris LCD ${i + 1}: SKU=${r[0]} | Produk=${r[1]} | Varian mentah=${r[2]} | Kategori=${r[3]} | Lokasi=${r[4]}`;
+        const keys = ['sku', 'product', 'product_variation', 'variation_name', 'variation', 'type', 'product_id', 'variation_id', 'location_name', 'location_id', 'product_custom_field1', 'product_custom_field2', 'product_custom_field3', 'product_custom_field4'];
+        const sub: any = {}; for (const k of keys) if (r[k] !== undefined) sub[k] = r[k];
+        return `Baris LCD ${i + 1}: ${JSON.stringify(sub)}`;
+      }).join('\n') : 'tidak tersedia (server lama — git pull dulu)';
+      alert(`Uji koneksi nyata BERHASIL: login ke iNOX diterima, feed Laporan Stok terbaca, recordsTotal = ${data.recordsTotal}. Contoh baris pertama: ${first}. Ini BUKAN demo — data ini benar-benar dari inox.my.id via server lokal.\n\nVarian MENTAH dari feed (belum diproses, untuk diagnosa):\n${rawLines}\n\nSampel LCD MENTAH dari feed (pencarian 'Lcd', total ${data.sample_lcd_total ?? '?'} baris, belum diproses):\n${lcdLines}\n\nYang menentukan adalah bagian Sampel LCD di atas: lihat product_variation DAN variation_name di tiap baris. Kalau keduanya hanya "LCD" (atau kosong), berarti feed sendiri tidak memberi grade — screenshot-kan pesan ini dan kirim ke pengembang.`);
     } catch (e) { alert('Server lokal tidak bisa dihubungi. Jalankan dulu di CMD kedua: npm run inox-server di folder Apname, tunggu sampai muncul "listening on http://localhost:4001", lalu coba lagi.'); }
   }
   async function doSync() {
