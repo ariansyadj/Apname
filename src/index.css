@@ -1,0 +1,162 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+}
+
+/* Theme "white" is the default shadcn palette above. */
+[data-theme="white"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+}
+
+[data-theme="dark"] {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+}
+
+[data-theme="pink"] {
+  --background: oklch(0.971 0.014 343.198);
+  --foreground: oklch(0.3 0.08 345);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.3 0.08 345);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.3 0.08 345);
+  --primary: oklch(0.6 0.22 350);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.02 350);
+  --secondary-foreground: oklch(0.3 0.08 345);
+  --muted: oklch(0.96 0.02 350);
+  --muted-foreground: oklch(0.55 0.1 350);
+  --accent: oklch(0.96 0.02 350);
+  --accent-foreground: oklch(0.3 0.08 345);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.03 350);
+  --input: oklch(0.92 0.03 350);
+  --ring: oklch(0.6 0.22 350);
+}
+
+[data-theme="blue"] {
+  --background: oklch(0.97 0.01 240);
+  --foreground: oklch(0.2 0.05 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.05 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.05 260);
+  --primary: oklch(0.5 0.2 260);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.02 240);
+  --secondary-foreground: oklch(0.2 0.05 260);
+  --muted: oklch(0.95 0.02 240);
+  --muted-foreground: oklch(0.45 0.08 260);
+  --accent: oklch(0.95 0.02 240);
+  --accent-foreground: oklch(0.2 0.05 260);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.03 240);
+  --input: oklch(0.9 0.03 240);
+  --ring: oklch(0.5 0.2 260);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* === MOBILE (HP) === */
+@media (max-width: 640px) {
+  /* Tabel: huruf sedikit lebih kecil + padding lebih rapat, supaya lebih
+     banyak kolom muat sebelum harus geser ke samping. Geser tabel tetap
+     horizontal (overflow-x-auto di komponen Table), bukan kolom dipaksa
+     menyempit sampai teksnya terpotong. */
+  table[data-slot="table"] { font-size: 13px; }
+  th[data-slot="table-head"], td[data-slot="table-cell"] { padding: 6px 8px; }
+  /* Scroll tabel & dialog terasa mulus di HP (momentum scroll iOS). */
+  [data-slot="table-container"] { -webkit-overflow-scrolling: touch; }
+  /* Input 16px di HP: mencegah iOS otomatis zoom saat kolom diketik. */
+  input, select, textarea { font-size: 16px; }
+}
