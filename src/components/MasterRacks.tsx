@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList, Printer } from 'lucide-react';
+import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList, Printer, Eye, FileSpreadsheet } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { printLabels, type LabelItem } from '../lib/labels';
 
 type Props = {
@@ -38,6 +40,27 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
   const [editH, setEditH] = useState(90);
   const [editRot, setEditRot] = useState(0);
   const [editLevels, setEditLevels] = useState<string[]>([]);
+  const [isi, setIsi] = useState<{ rack: Rack; level: string } | null>(null);
+  const levelItems = (rid: string, lv: string) => products.map((pr) => ({ pr, qty: stock[`${pr.id}|${rid}|${lv}`] || 0 })).filter((x) => x.qty > 0).sort((a, b) => a.pr.name.localeCompare(b.pr.name));
+  const exportIsiExcel = async () => {
+    if (!isi) return;
+    const items = levelItems(isi.rack.id, isi.level);
+    const { default: ExcelJS } = await import('exceljs');
+    const wb = new ExcelJS.Workbook(); wb.creator = 'Apname';
+    const ws = wb.addWorksheet('Isi Rak-Level');
+    ws.addRow(['Isi Rak / Level', `${isi.rack.name} — ${isi.level}`]);
+    ws.addRow(['Cabang', branches.find((b) => b.id === isi.rack.branchId)?.name || isi.rack.branchId]);
+    ws.addRow(['Rak', isi.rack.id]);
+    ws.addRow(['Total unit di level ini', items.reduce((a, x) => a + x.qty, 0)]);
+    ws.addRow(['Jumlah jenis produk', items.length]);
+    ws.addRow([]);
+    ws.addRow(['SKU', 'Produk', 'Varian', 'Kategori', 'Stok di Level Ini', 'Harga Jual', 'Total Nilai']);
+    items.forEach((x) => { ws.addRow([x.pr.sku, x.pr.name, x.pr.variant, x.pr.category, x.qty, x.pr.price, x.qty * x.pr.price]); });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `Isi-${isi.rack.id}-${isi.level.replace(/\s+/g, '-')}.xlsx`; a.click(); URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (!branches.some((b) => b.id === branchId)) setBranchId(branches[0]?.id || '');
@@ -179,13 +202,14 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
               {r.levels.map((lv) => (
                 <div key={lv} className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
                   <span>{lv} — {levelTotal(r.id, lv)} unit</span>
-                  <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => printLabels([labelFor(r, lv)])}><Printer className="size-4" /> Label</Button><Button size="sm" onClick={() => onOpenLevel(r.id, lv)}>Opname Level Ini Saja</Button></div>
+                  <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setIsi({ rack: r, level: lv })}><Eye className="size-4" /> Lihat Isi</Button><Button variant="outline" size="sm" onClick={() => printLabels([labelFor(r, lv)])}><Printer className="size-4" /> Label</Button><Button size="sm" onClick={() => onOpenLevel(r.id, lv)}>Opname Level Ini Saja</Button></div>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
       ))}
+      {isi && (() => { const items = levelItems(isi.rack.id, isi.level); const total = items.reduce((a, x) => a + x.qty, 0); return (<Dialog open={!!isi} onOpenChange={(o) => { if (!o) setIsi(null); }}><DialogContent className="max-w-3xl max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>Isi {isi.rack.name} — {isi.level}</DialogTitle><DialogDescription>{branches.find((b) => b.id === isi.rack.branchId)?.name || isi.rack.branchId} • {isi.rack.id}{isi.rack.type === 'retur' ? ' (RETUR)' : ''} • {items.length} jenis produk • {total} unit di level ini. Hanya barang dengan stok &gt; 0 di level ini yang tampil — barang stok 0 berarti memang tidak ada di level ini.</DialogDescription></DialogHeader><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Produk</TableHead><TableHead>Varian</TableHead><TableHead>Stok di Level Ini</TableHead><TableHead>Harga Jual</TableHead></TableRow></TableHeader><TableBody>{items.map((x) => (<TableRow key={x.pr.id}><TableCell>{x.pr.sku}</TableCell><TableCell>{x.pr.name}</TableCell><TableCell>{x.pr.variant}</TableCell><TableCell><b>{x.qty}</b></TableCell><TableCell>{x.pr.price}</TableCell></TableRow>))}</TableBody></Table>{items.length === 0 && <p className="text-sm text-muted-foreground">Level ini kosong — tidak ada barang dengan stok &gt; 0 di sini.</p>}<DialogFooter><Button variant="outline" onClick={exportIsiExcel}><FileSpreadsheet className="size-4" /> Download Excel Isi Level Ini</Button><Button variant="outline" onClick={() => setIsi(null)}>Tutup</Button></DialogFooter></DialogContent></Dialog>); })()}
     </div>
   );
 }
