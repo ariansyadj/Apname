@@ -98,25 +98,35 @@ menyentuh `stock_by_rack`.
    - Badge `Supabase aktif` muncul di header (tanda env terbaca).
    - Login dengan akun Supabase Auth yang sudah dibuat di langkah 1.
 
-## 4. Yang BELUM berubah di versi ini (baca sebelum go-live)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-migrasi-supabase)
 
-- Frontend di Netlify masih memakai localStorage sebagai sumber utama
-  data opname (sesi, scan, stok rak) — persis seperti versi lokal — dengan
-  satu pengecualian: kalau Supabase terkonfigurasi, daftar rak dimuat dari
-  tabel `racks` Supabase (best-effort, gagal = fallback lokal). Badge
-  "Supabase aktif" berarti env terbaca, **bukan** berarti semua data sudah
-  pindah ke Supabase.
-- Jadi go-live yang benar urutannya: (a) Netlify + Supabase + Edge Function
-  jalan dulu dengan data lokal seperti sekarang, (b) **fase berikutnya**
-  adalah migrasi layer data penuh: sesi/scan/mutasi/stok/akun pindah dari
-  localStorage ke tabel Supabase + Supabase Auth, dan tombol Sync di
-  aplikasi memanggil Edge Function, bukan server localhost:4001. Fase itu
-  sengaja tidak dicampur ke branch ini, karena menyentuh semua state
-  aplikasi dan harus diuji terpisah — kalau dicampur sekarang, risiko
-  merusak aplikasi lokal yang sudah jalan lebih besar daripada manfaatnya.
-- Selama fase migrasi belum jalan, server lokal (`npm run dev` +
-  `npm run inox-server`) tetap cara yang terbukti untuk sync nyata dari PC,
-  dan branch `main` tetap branch kerja harian.
+- Kalau env Supabase terisi, layar login menampilkan tombol
+  **"Masuk dengan Supabase (data cloud)"** (butuh email + password
+  Supabase Auth). Setelah login cloud, badge header menjadi
+  **"Supabase • Cloud"** dan seluruh data (produk, rak, stok, sesi +
+  scan + mutasi, pindah, total eksternal) dimuat dari Supabase.
+- **Tanpa login Supabase, aplikasi persis seperti versi lokal**
+  (localStorage) — mode lokal tidak berubah sama sekali.
+- Migrasi data lokal yang sudah ada: di Settings → kartu
+  "Supabase — Mode Cloud" (hanya muncul kalau env terisi dan sudah login
+  cloud), tekan **"Migrasi Data Lokal → Supabase"**, lalu
+  **"Muat Ulang dari Supabase"** untuk memastikan yang tampil adalah data
+  cloud. Sync iNOX di mode cloud memanggil Edge Function (tombol
+  "Sync via Edge Function" di kartu yang sama), bukan localhost:4001.
+- **Proyek Supabase lama:** jalankan bagian "Tambahan migrasi penuh
+  (2026-10-26)" di `supabase/schema.sql` (tabel `unplaced_stock`,
+  kebijakan tulis, kolom id scan/mutasi/pindah jadi text). Proyek baru
+  cukup menjalankan seluruh file sekali.
+- **Batas yang masih berlaku (baca sebelum go-live):**
+  - Tidak ada realtime: perubahan dari HP lain baru terlihat setelah
+    "Muat Ulang dari Supabase".
+  - Dua orang mengedit sesi yang sama bersamaan = last-write-wins di
+    level sesi (scan ditulis ulang per sesi saat simpan).
+  - Akun di mode cloud dikelola di Supabase Auth, bukan menu Kelola Akun
+    (menu itu menampilkan penjelasan ini saat mode cloud aktif).
+  - Server lokal (`npm run dev` + `npm run inox-server`) tetap cara yang
+    terbukti untuk sync nyata dari PC, dan branch `main` tetap branch
+    kerja harian.
 
 ## Rollback
 
