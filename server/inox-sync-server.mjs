@@ -238,6 +238,23 @@ function parseNum(v) {
 }
 function parseRow(row) {
   if (Array.isArray(row)) {
+    // PENTING (bug cabang tidak terdeteksi, 2026-10-25): baris DataTables
+    // bentuk array TIDAK membawa product_id/variation_id/location_id di
+    // kolomnya — versi lama mengisi ketiganya null, sehingga import di
+    // frontend melewati SEMUA baris (skipped) dan sync seolah berhasil
+    // padahal tidak ada produk baru yang masuk. Perbaikan:
+    // - location_id diturunkan dari nama lokasi kolom 5 (KWSN=6, MDC=1,
+    //   SDNKG=7, LLF=8), karena nama lokasi selalu ada di kolom itu.
+    // - product_id/variation_id dicoba diekstrak dari HTML kolom aksi
+    //   (row[0]) bila ada pola id di sana; kalau tidak ada, tetap null
+    //   dan frontend memakai kunci cadangan SKU+varian+lokasi.
+    const locName = stripHtml(row[5]).toUpperCase();
+    const LOC_MAP = { KWSN: 6, MDC: 1, SDNKG: 7, LLF: 8 };
+    let location_id = null;
+    for (const [k, v] of Object.entries(LOC_MAP)) if (locName.includes(k)) { location_id = v; break; }
+    const actionHtml = typeof row[0] === 'string' ? row[0] : '';
+    const pidMatch = actionHtml.match(/product_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/products\/(\d+)/i);
+    const vidMatch = actionHtml.match(/variation_id[^0-9]{0,5}(\d+)/i) || actionHtml.match(/\/variations\/(\d+)/i);
     return {
       sku: stripHtml(row[1]),
       product: stripHtml(row[2]),
@@ -252,9 +269,9 @@ function parseRow(row) {
       total_sold: parseNum(row[11]),
       total_transfered: parseNum(row[12]),
       total_adjusted: parseNum(row[13]),
-      product_id: null,
-      variation_id: null,
-      location_id: null,
+      product_id: pidMatch ? Number(pidMatch[1]) : null,
+      variation_id: vidMatch ? Number(vidMatch[1]) : null,
+      location_id,
     };
   }
   if (row && typeof row === 'object') {
@@ -365,8 +382,12 @@ function feedParams({ start, length, draw, location_id }) {
     params.set(`columns[${i}][search][value]`, '');
     params.set(`columns[${i}][search][regex]`, 'false');
   });
-  params.set('order[0][column]', '1');
+  params.set('order[0][column]', '2');
   params.set('order[0][dir]', 'asc');
+  params.set('order[1][column]', '3');
+  params.set('order[1][dir]', 'asc');
+  params.set('order[2][column]', '1');
+  params.set('order[2][dir]', 'asc');
   params.set('start', String(start));
   params.set('length', String(length));
   params.set('search[value]', '');
@@ -433,6 +454,11 @@ async function syncAll({ username, password, location_id }) {
   return withJar(async (jarPath) => {
     await loginSession(jarPath, username, password);
     const first = await fetchFeedPage(jarPath, { start: 0, length: 100, draw: 1, location_id });
+    if (first.total > first.rows.length && first.total <= 4000) {
+      const all = await fetchFeedPage(jarPath, { start: 0, length: first.total, draw: 2, location_id });
+      if (all.rows.length === all.total) return { rows: all.rows, total: all.total };
+      // Kalau server membatasi length, jatuh kembali ke paging di bawah.
+    }
     const total = first.total;
     const all = [...first.rows];
     let start = first.rows.length;
