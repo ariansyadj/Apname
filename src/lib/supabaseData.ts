@@ -342,3 +342,22 @@ export async function sbCallEdgeSync(action: "test" | "sync"): Promise<any> {
   if (!data.ok) throw new Error(data.error || "Edge Function gagal.");
   return data;
 }
+
+export async function sbAdminCreateUser(input: { email: string; password: string; name: string; role: string; branchId: string | null }): Promise<any> {
+  const c = await getClient();
+  if (!c) throw new Error("Supabase belum dikonfigurasi.");
+  const { data: { session } } = await c.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Login Supabase dulu (sesi tidak ditemukan).");
+  const url = import.meta.env.VITE_SUPABASE_URL as string;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  if (!url || !anonKey) throw new Error("Supabase belum dikonfigurasi.");
+  const res = await fetch(`${url}/functions/v1/admin-create-user`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json().catch(() => ({ ok: false, error: "Respons Edge Function bukan JSON" }));
+  if (!res.ok || !data.ok) throw new Error(data.error || `Edge Function gagal (HTTP ${res.status}).`);
+  return data;
+}
