@@ -16,7 +16,7 @@
 import { isSupabaseConfigured } from "./supabase";
 import type { Product, Rack } from "../data";
 
-export type SBUser = { email: string; name: string; role: string; branchId: string | null; claimsMissing: boolean };
+export type SBUser = { id: string; email: string; name: string; username: string; role: string; branchId: string | null; menus: string[] | null; claimsMissing: boolean };
 
 // Tipe lokal (bentuknya sama dengan tipe di App.tsx, didefinisikan ulang
 // di sini supaya modul ini tidak mengimpor App.tsx).
@@ -48,9 +48,13 @@ async function getClient() {
   return client;
 }
 
-export async function sbSignIn(email: string, password: string): Promise<SBUser> {
+export async function sbSignIn(emailOrUsername: string, password: string): Promise<SBUser> {
   const c = await getClient();
   if (!c) throw new Error("Supabase belum dikonfigurasi (VITE_SUPABASE_URL / ANON_KEY kosong).");
+  // Login boleh pakai username saja: "nisa" -> nisa@apname.com. Email lengkap
+  // (termasuk akun lama yang bukan @apname.com) tetap dipakai apa adanya.
+  const login = emailOrUsername.trim();
+  const email = login.includes("@") ? login : `${login.toLowerCase()}@apname.com`;
   const { data, error } = await c.auth.signInWithPassword({ email, password });
   if (error || !data.user) throw new Error(error?.message || "Login Supabase gagal.");
   return userFromSession(data.user);
@@ -65,12 +69,16 @@ function userFromSession(u: any): SBUser {
   const meta = u.app_metadata || {};
   const role = typeof meta.role === "string" ? meta.role : "";
   const branchId = typeof meta.branch_id === "string" ? meta.branch_id : null;
+  const menus = Array.isArray(meta.menus) ? meta.menus.filter((m: unknown) => typeof m === "string") : null;
   const claimsMissing = !["super", "admin", "karyawan"].includes(role);
   return {
+    id: u.id || "",
     email: u.email || "",
     name: (u.user_metadata && u.user_metadata.name) || u.email || "",
+    username: (u.user_metadata && typeof u.user_metadata.username === "string") ? u.user_metadata.username : "",
     role: claimsMissing ? "karyawan" : role,
     branchId,
+    menus,
     claimsMissing,
   };
 }
@@ -343,7 +351,7 @@ export async function sbCallEdgeSync(action: "test" | "sync"): Promise<any> {
   return data;
 }
 
-export async function sbAdminCreateUser(input: { email: string; password: string; name: string; role: string; branchId: string | null }): Promise<any> {
+export async function sbAdminCreateUser(input: { email: string; password: string; name: string; username?: string; role: string; branchId: string | null }): Promise<any> {
   const c = await getClient();
   if (!c) throw new Error("Supabase belum dikonfigurasi.");
   const { data: { session } } = await c.auth.getSession();
@@ -355,6 +363,24 @@ export async function sbAdminCreateUser(input: { email: string; password: string
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  });
+  const data = await res.json().catch(() => ({ ok: false, error: "Respons Edge Function bukan JSON" }));
+  if (!res.ok || !data.ok) throw new Error(data.error || `Edge Function gagal (HTTP ${res.status}).`);
+  return data;
+}
+
+export async function sbAdminUsers(action: "list" | "update" | "delete", payload: any = {}): Promise<any> {
+  const c = await getClient();
+  if (!c) throw new Error("Supabase belum dikonfigurasi.");
+  const { data: { session } } = await c.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Login Supabase dulu (sesi tidak ditemukan).");
+  const url = import.meta.env.VITE_SUPABASE_URL as string;
+  if (!url) throw new Error("Supabase belum dikonfigurasi.");
+  const res = await fetch(`${url}/functions/v1/admin-manage-users`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...payload }),
   });
   const data = await res.json().catch(() => ({ ok: false, error: "Respons Edge Function bukan JSON" }));
   if (!res.ok || !data.ok) throw new Error(data.error || `Edge Function gagal (HTTP ${res.status}).`);

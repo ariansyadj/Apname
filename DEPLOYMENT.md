@@ -114,6 +114,32 @@ Catatan: fungsi ini TIDAK menggantikan inox-sync — keduanya fungsi
 berbeda, keduanya harus ada. Kalau fungsi ini belum di-deploy, form
 Buat Akun di aplikasi akan gagal dengan pesan error yang menyebutnya.
 
+## 2b. Supabase — Edge Function admin-manage-users (sekali saja, untuk Daftar Akun & Hak Akses)
+
+Fungsi ini (`supabase/functions/admin-manage-users/index.ts`) adalah
+pasangan dari admin-create-user: daftar akun, ubah role/cabang/menu/nama/
+username/password, dan hapus akun — semuanya dari menu Kelola Akun di
+aplikasi (khusus Super Admin), tanpa membuka dashboard Supabase.
+Verifikasi penelepon sama (JWT harus ber-claim super), dan ada pengaman:
+tidak bisa menghapus akun sendiri, tidak bisa menurunkan role sendiri.
+
+Deploy-nya sama (paste di dashboard Edge Functions dengan nama persis
+`admin-manage-users`, atau `supabase functions deploy admin-manage-users`
+dari CLI). TIDAK ADA SECRET BARU — hanya variabel bawaan Supabase.
+
+Dua hal terkait yang ikut berubah di build ini:
+- Login username: kolom login cloud menerima username saja — "nisa"
+  otomatis jadi nisa@apname.com. Form buat akun punya field Username
+  (opsional); bila email kosong, email otomatis username@apname.com.
+  Akun lama yang emailnya bukan @apname.com tetap login pakai email
+  lengkap. Username disimpan di user_metadata.username.
+- Setting menu per user: Super Admin di Kelola Akun → Muat Daftar Akun
+  → Atur Menu (centang menu yang boleh dibuka). Menu disimpan di
+  klaim app_metadata.menus; akun tanpa klaim itu melihat semua menu
+  seperti biasa. Perubahan menu/role berlaku di login berikutnya. Menu
+  Kelola Akun selalu tampil untuk Super Admin, apa pun setting menunya,
+  supaya tidak ada kondisi terkunci.
+
 ## 3. Netlify — sambungkan repo (sekali saja)
 
 1. Buka https://app.netlify.com, Add new site → Import an existing project
@@ -139,7 +165,7 @@ Buat Akun di aplikasi akan gagal dengan pesan error yang menyebutnya.
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-buat-akun-fix)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-username-scan-menu)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password
