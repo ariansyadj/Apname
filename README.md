@@ -118,7 +118,7 @@ Auth + klaim role/cabang, secrets Edge Function, deploy + uji
 Status jujur: sampai langkah itu dijalankan di akun Ucok sendiri, belum ada
 situs Netlify live dan belum ada proyek Supabase live — branch ini berisi
 semua kode + konfigurasinya, bukan klaim sudah live. Migrasi data penuh ke
-Supabase sudah selesai di kode (build 2026-10-26-tanpa-demo): login
+Supabase sudah selesai di kode (build 2026-10-26-hapus-item): login
 cloud via Supabase Auth, data opname tersimpan ke Supabase, sync iNOX via
 Edge Function; tanpa login Supabase, aplikasi tetap mode lokal persis
 seperti sebelumnya. Detail + batasnya ada di DEPLOYMENT.md §4.

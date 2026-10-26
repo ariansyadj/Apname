@@ -99,7 +99,7 @@ menyentuh `stock_by_rack`.
    Jangan isi `INOX_PASSWORD` atau service role key di Netlify — tempatnya
    hanya di secrets Edge Function Supabase.
 4. Deploy. Begitu selesai, buka URL Netlify-nya dan cek:
-   - Footer menampilkan `Build 2026-10-26-tanpa-demo`.
+   - Footer menampilkan `Build 2026-10-26-hapus-item`.
    - Badge `Supabase terkonfigurasi (belum login cloud)` muncul di header
      (tanda env terbaca); setelah login Supabase, badge menjadi
      `Supabase • Cloud`.
@@ -109,7 +109,7 @@ menyentuh `stock_by_rack`.
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-tanpa-demo)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-hapus-item)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password
