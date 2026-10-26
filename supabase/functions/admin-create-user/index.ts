@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Validasi input akun baru.
     const body = await req.json() as {
-      email?: string; password?: string; name?: string;
+      email?: string; password?: string; name?: string; username?: string;
       role?: string; branchId?: string | null;
     };
     const email = String(body.email || "").trim().toLowerCase();
@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
         password,
         email_confirm: true,
         app_metadata: { role, branch_id: branchId },
-        user_metadata: { name: name || email },
+        user_metadata: { name: name || email, ...(body.username ? { username: body.username } : {}) },
       }),
     });
     if (!createRes.ok) {
