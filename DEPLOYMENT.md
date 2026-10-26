@@ -140,6 +140,39 @@ Dua hal terkait yang ikut berubah di build ini:
   Kelola Akun selalu tampil untuk Super Admin, apa pun setting menunya,
   supaya tidak ada kondisi terkunci.
 
+## 2c. Supabase — Realtime antar device (sekali saja, untuk proyek lama)
+
+Tanpa langkah ini, channel Realtime tersambung tapi tidak ada event yang
+mengalir (badge header tetap menunjukkan ● Live, tapi layar device lain
+tidak berubah sendiri — Muat Ulang tetap jadi jalan keluarnya). Proyek
+baru yang menjalankan schema.sql dari awal TIDAK perlu langkah ini
+(blok publikasi sudah ada di akhir schema.sql).
+
+1. Dashboard Supabase → SQL Editor → New query.
+2. Tempel dan Run (satu per satu; kalau satu baris error "already
+   member", abaikan baris itu dan lanjutkan):
+
+   alter publication supabase_realtime add table branches;
+   alter publication supabase_realtime add table racks;
+   alter publication supabase_realtime add table products;
+   alter publication supabase_realtime add table stock_by_rack;
+   alter publication supabase_realtime add table sessions;
+   alter publication supabase_realtime add table scans;
+   alter publication supabase_realtime add table session_mutations;
+   alter publication supabase_realtime add table moves;
+   alter publication supabase_realtime add table external_totals;
+   alter publication supabase_realtime add table unplaced_stock;
+
+3. Verifikasi: petugas A scan 1 barang di satu device, petugas B yang
+   sudah login di device lain melihat scan itu muncul di sesi yang sama
+   dalam 1–2 detik, tanpa menekan apa pun. Badge header B harus ● Live.
+4. Batas yang tetap berlaku: realtime hanya mempercepat TAMPILAN.
+   Aturan satu sesi = satu petugas yang mengedit tetap berlaku — dua
+   device yang mengedit sesi yang sama bersamaan tetap berisiko
+   timpa-menimpa (simpanan terakhir menang per sesi). Device yang
+   sedang mengedit tidak ditimpa event dari device lain; ia menyusul
+   setelah menyimpan.
+
 ## 3. Netlify — sambungkan repo (sekali saja)
 
 1. Buka https://app.netlify.com, Add new site → Import an existing project
@@ -165,7 +198,7 @@ Dua hal terkait yang ikut berubah di build ini:
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-tambah-cepat)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-realtime)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password

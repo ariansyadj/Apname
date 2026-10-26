@@ -249,3 +249,20 @@ create policy "unplaced: read for authenticated" on unplaced_stock
 -- Catatan: "for all" pada sessions/scans/mutations/moves di skema utama
 -- sudah mencakup tulis untuk super / cabang sendiri, jadi tidak perlu
 -- kebijakan tambahan untuk tabel-tabel itu.
+
+-- Realtime antar device (2026-10-26): tabel-tabel ini harus masuk publikasi
+-- supabase_realtime supaya perubahan dari device lain mengalir lewat
+-- Realtime ke aplikasi. Proyek baru yang menjalankan file ini dari awal
+-- langsung mendapatkannya. Proyek lama: jalankan baris-baris di bawah
+-- sekali di SQL Editor. Kalau satu baris error "already member", abaikan
+-- baris itu (sudah ditambahkan sebelumnya) dan lanjutkan baris lain.
+alter publication supabase_realtime add table branches;
+alter publication supabase_realtime add table racks;
+alter publication supabase_realtime add table products;
+alter publication supabase_realtime add table stock_by_rack;
+alter publication supabase_realtime add table sessions;
+alter publication supabase_realtime add table scans;
+alter publication supabase_realtime add table session_mutations;
+alter publication supabase_realtime add table moves;
+alter publication supabase_realtime add table external_totals;
+alter publication supabase_realtime add table unplaced_stock;
