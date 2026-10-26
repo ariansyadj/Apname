@@ -172,8 +172,8 @@ export async function sbLoadAll(): Promise<SBState> {
     status: s.status === "Selesai" ? "Selesai" : "Berjalan",
     createdAt: msOf(s.created_at) || 0, createdBy: String(s.created_by || ""),
     lockedAt: msOf(s.locked_at), snapshot: (s.snapshot || {}) as Record<string, number>,
-    scans: (scansBySession.get(String(s.id)) || []).sort((a, b) => b.time - a.time),
-    mutations: (mutsBySession.get(String(s.id)) || []).sort((a, b) => b.time - a.time),
+    scans: (scansBySession.get(String(s.id)) || []).sort((a: any, b: any) => b.time - a.time),
+    mutations: (mutsBySession.get(String(s.id)) || []).sort((a: any, b: any) => b.time - a.time),
     adjustmentStatus: s.adjustment_status === "Disetujui" ? "Disetujui" : "Menunggu",
     externalAt: msOf(s.external_at),
   }));
@@ -181,7 +181,7 @@ export async function sbLoadAll(): Promise<SBState> {
     id: String(m.id), time: msOf(m.moved_at) || 0, user: String(m.moved_by || ""), productId: String(m.product_id),
     fromRack: String(m.from_rack_id), fromLevel: String(m.from_level), toRack: String(m.to_rack_id), toLevel: String(m.to_level),
     qty: Number(m.qty || 0), reason: String(m.reason || ""), photo: String(m.photo_data_url || ""),
-  })).sort((a, b) => b.time - a.time);
+  })).sort((a: any, b: any) => b.time - a.time);
   const externalTotals: Record<string, { stock: number; at: number }> = {};
   for (const e of extRows) externalTotals[String(e.product_id)] = { stock: Number(e.stock || 0), at: msOf(e.updated_at) || 0 };
   return { products, racks, stock, sessions, moves, externalTotals, branches };
@@ -385,4 +385,70 @@ export async function sbAdminUsers(action: "list" | "update" | "delete", payload
   const data = await res.json().catch(() => ({ ok: false, error: "Respons Edge Function bukan JSON" }));
   if (!res.ok || !data.ok) throw new Error(data.error || `Edge Function gagal (HTTP ${res.status}).`);
   return data;
+}
+
+export type RTEvent = { eventType: "INSERT" | "UPDATE" | "DELETE"; table: string; newRow: any; oldRow: any };
+export type RTHandlers = {
+  onStatus?: (connected: boolean) => void;
+  onSession?: (e: RTEvent) => void;
+  onScan?: (e: RTEvent) => void;
+  onMutation?: (e: RTEvent) => void;
+  onStock?: (e: RTEvent) => void;
+  onUnplaced?: (e: RTEvent) => void;
+  onMove?: (e: RTEvent) => void;
+  onRack?: (e: RTEvent) => void;
+  onProduct?: (e: RTEvent) => void;
+  onExternal?: (e: RTEvent) => void;
+};
+
+// Langganan Realtime antar device (mode cloud saja). Prasyarat di sisi
+// Supabase: tabel-tabel di bawah harus masuk publikasi supabase_realtime
+// (lihat blok di akhir supabase/schema.sql; proyek lama menjalankannya
+// sekali di SQL Editor). Event dihormati RLS: user hanya menerima baris
+// yang boleh ia baca (super = semua, admin/karyawan = cabangnya).
+// Pengiriman event memakai JWT user yang login, bukan service role.
+export async function sbSubscribeRealtime(h: RTHandlers): Promise<() => void> {
+  const c = await getClient();
+  if (!c) return () => {};
+  const tables: [string, (e: RTEvent) => void][] = [
+    ["sessions", (e) => h.onSession?.(e)],
+    ["scans", (e) => h.onScan?.(e)],
+    ["session_mutations", (e) => h.onMutation?.(e)],
+    ["stock_by_rack", (e) => h.onStock?.(e)],
+    ["unplaced_stock", (e) => h.onUnplaced?.(e)],
+    ["moves", (e) => h.onMove?.(e)],
+    ["racks", (e) => h.onRack?.(e)],
+    ["products", (e) => h.onProduct?.(e)],
+    ["external_totals", (e) => h.onExternal?.(e)],
+  ];
+  let ch: any = c.channel("apname-live");
+  for (const [table, fn] of tables) {
+    ch = ch.on("postgres_changes", { event: "*", schema: "public", table }, (payload: any) => {
+      fn({ eventType: payload.eventType, table, newRow: payload.new || null, oldRow: payload.old || null });
+    });
+  }
+  ch.subscribe((status: string) => { h.onStatus?.(status === "SUBSCRIBED"); });
+  return () => { try { c.removeChannel(ch); } catch { /* abaikan */ } };
+}
+
+export async function sbLoadSession(id: string): Promise<SBSession | null> {
+  const c = await getClient();
+  if (!c) throw new Error("Supabase belum dikonfigurasi.");
+  const { data: sRows } = await c.from("sessions").select("*").eq("id", id).limit(1);
+  const s = (sRows || [])[0];
+  if (!s) return null;
+  const { data: scRows } = await c.from("scans").select("*").eq("session_id", id);
+  const { data: muRows } = await c.from("session_mutations").select("*").eq("session_id", id);
+  return {
+    id: String(s.id), title: String(s.title || ""), branchId: String(s.branch_id),
+    racks: Array.isArray(s.racks) ? s.racks : [],
+    scopeLevels: s.scope_levels || undefined,
+    status: s.status === "Selesai" ? "Selesai" : "Berjalan",
+    createdAt: msOf(s.created_at) || 0, createdBy: String(s.created_by || ""),
+    lockedAt: msOf(s.locked_at), snapshot: (s.snapshot || {}) as Record<string, number>,
+    scans: (scRows || []).map((x: any) => ({ id: String(x.id), time: msOf(x.scanned_at) || 0, user: String(x.scanned_by || ""), productId: String(x.product_id), rackId: String(x.rack_id), level: String(x.level), qty: Number(x.qty || 0), mode: String(x.mode || ""), barcode: String(x.barcode || "") })).sort((a: any, b: any) => b.time - a.time),
+    mutations: (muRows || []).map((x: any) => ({ id: String(x.id), time: msOf(x.created_at) || 0, user: String(x.created_by || ""), productId: String(x.product_id), kind: String(x.kind || ""), direction: x.direction === "Masuk" ? "Masuk" : "Keluar", qty: Number(x.qty || 0), rackId: String(x.rack_id || ""), reference: String(x.reference || ""), note: String(x.note || "") })).sort((a: any, b: any) => b.time - a.time),
+    adjustmentStatus: s.adjustment_status === "Disetujui" ? "Disetujui" : "Menunggu",
+    externalAt: msOf(s.external_at),
+  };
 }
