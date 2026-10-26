@@ -49,13 +49,19 @@ menyentuh `stock_by_rack`.
    supabase link --project-ref <ref-proyek-anda>
    supabase functions deploy inox-sync
    ```
-2. Set secrets (dashboard → Edge Functions → Secrets, atau CLI):
+2. Set secrets (dashboard → Edge Functions → Secrets, atau CLI) — HANYA
+   2 ini (terbukti 2026-10-26: dashboard MENOLAK nama berawalan
+   `SUPABASE_` dengan error "Name must not start with the SUPABASE_
+   prefix"):
    ```bash
    supabase secrets set INOX_USERNAME=<username-inox>
    supabase secrets set INOX_PASSWORD=<password-inox>
-   supabase secrets set SUPABASE_URL=https://<ref>.supabase.co
-   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
    ```
+   `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` TIDAK perlu diisi
+   manual — Supabase sudah menyediakannya otomatis sebagai variabel
+   bawaan di dalam Edge Function, dan kode membacanya dari situ. Kalau
+   dua baris itu sempat terisi di form Secrets, hapus saja (ikon tempat
+   sampah), sisakan 2 secret iNOX, lalu Save.
    Password iNOX hanya di sini. Jangan pernah menaruhnya di chat, di
    `.env`, di Netlify, atau di repo.
 3. Uji dulu tanpa menulis data (mode test — login + 5 baris pertama saja):
@@ -93,12 +99,17 @@ menyentuh `stock_by_rack`.
    Jangan isi `INOX_PASSWORD` atau service role key di Netlify — tempatnya
    hanya di secrets Edge Function Supabase.
 4. Deploy. Begitu selesai, buka URL Netlify-nya dan cek:
-   - Footer menampilkan `Build 2026-10-26-dibuat-oleh-cari-username`
-     (build yang sama dengan yang jalan lokal sekarang).
-   - Badge `Supabase aktif` muncul di header (tanda env terbaca).
-   - Login dengan akun Supabase Auth yang sudah dibuat di langkah 1.
+   - Footer menampilkan `Build 2026-10-26-tanpa-demo`.
+   - Badge `Supabase terkonfigurasi (belum login cloud)` muncul di header
+     (tanda env terbaca); setelah login Supabase, badge menjadi
+     `Supabase • Cloud`.
+   - Login dengan akun Supabase Auth yang sudah dibuat di langkah 1
+     (tombol "Masuk dengan Supabase", bukan akun demo).
+   - PENTING: env VITE_* dibaca Vite saat build. Kalau env baru diisi
+     setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
+     aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-migrasi-supabase)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-tanpa-demo)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password
