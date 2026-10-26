@@ -118,7 +118,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
         <CardHeader>
           <CardTitle>Master Rak</CardTitle>
           <CardDescription>
-            Daftar rak per cabang. Satu cabang = satu tempat, jadi rak KWSN tidak dicampur dengan rak cabang lain di denah yang sama.
+            Daftar rak per cabang — rak tiap cabang tidak dicampur di denah yang sama.
             {canEdit ? ' Super Admin / Admin Cabang bisa tambah, edit nama dan level, dan hapus rak.' : ' Karyawan hanya bisa melihat — edit rak hanya untuk Super Admin / Admin Cabang.'}
           </CardDescription>
         </CardHeader>
