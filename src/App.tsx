@@ -72,7 +72,6 @@ function Pager({ page, pageSize, total, onPage, onPageSize }: { page: number; pa
   return (<div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span>Tampilkan:</span><div className="w-[110px]"><Select value={String(pageSize)} onValueChange={(v) => onPageSize(v === 'Semua' ? 'Semua' : Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{[25, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}<SelectItem value="Semua">Semua</SelectItem></SelectContent></Select></div><span>Menampilkan {start}–{end} dari {total}</span><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>Sebelumnya</Button><span>Halaman {page} / {tp}</span><Button variant="outline" size="sm" disabled={page >= tp} onClick={() => onPage(page + 1)}>Berikutnya</Button></div>);
 }
 const THEMES = ['white', 'dark', 'pink', 'blue'] as const;
-const NAV_ITEMS: NavItem[] = [
 // Alamat URL per menu (SPA + fallback Nginx: refresh / deep link tetap membuka menu itu).
 const VIEW_PATHS: Record<View, string> = {
   dashboard: '/', stok: '/stok', cari: '/cari-barang', master: '/master-rak', visual: '/visual-gudang',
@@ -83,6 +82,7 @@ function pathToView(pathname: string): View {
   const p = pathname.replace(/\/+$/, '') || '/';
   return PATH_VIEWS[p] || 'dashboard';
 }
+const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'stok', label: 'Stok & Master', icon: Package },
   { id: 'cari', label: 'Cari Barang', icon: Search },
