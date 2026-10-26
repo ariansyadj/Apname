@@ -1,0 +1,21 @@
+[Unit]
+Description=Apname backend (API + WebSocket + sync iNOX)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=apname
+WorkingDirectory=/opt/apname/repo/opname-app/server
+EnvironmentFile=/opt/apname/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+# Batas memori: VPS hanya 1 GB; backend kecil, 256 MB sudah longgar.
+MemoryMax=256M
+# Log ke journald: journalctl -u apname -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
