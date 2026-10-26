@@ -18,6 +18,7 @@ type Props = {
   products: Product[];
   canEdit: boolean;
   onAddRack: (branchId: string, name: string, type: 'normal' | 'retur', levels: string[], w: number, h: number) => void;
+  onAddLevel: (rackId: string, level: string) => string;
   onUpdateRack: (id: string, patch: Partial<Rack>) => void;
   onRenameLevel: (rackId: string, oldLevel: string, newLevel: string) => string;
   onDeleteLevel: (rackId: string, level: string) => string;
@@ -29,7 +30,7 @@ type Props = {
   onOpenLevel: (rackId: string, level: string) => void;
 };
 
-export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAddRack, onUpdateRack, onRenameLevel, onDeleteLevel, onDeleteRack, onGoVisual, onOpenRack, onOpenLevel, isSuper, onDeleteLevelItem }: Props) {
+export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAddRack, onAddLevel, onUpdateRack, onRenameLevel, onDeleteLevel, onDeleteRack, onGoVisual, onOpenRack, onOpenLevel, isSuper, onDeleteLevelItem }: Props) {
   const [branchId, setBranchId] = useState(branches[0]?.id || '');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('Rak C');
@@ -90,13 +91,21 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
 
   const saveEdit = (r: Rack) => {
     if (!editName.trim()) { alert('Nama rak tidak boleh kosong.'); return; }
+    const trimmed = editLevels.map(l => l.trim());
+    if (trimmed.some(l => !l)) { alert('Nama level tidak boleh kosong.'); return; }
+    if (new Set(trimmed).size !== trimmed.length) { alert('Ada nama level yang sama di rak ini.'); return; }
     for (let i = 0; i < r.levels.length; i++) {
       const oldL = r.levels[i];
-      const newL = editLevels[i] || oldL;
+      const newL = trimmed[i] || oldL;
       if (newL !== oldL) {
         const msg = onRenameLevel(r.id, oldL, newL);
         if (msg !== 'OK') { alert(msg); return; }
       }
+    }
+    // Level yang ditambahkan di luar jumlah level lama adalah level BARU — simpan juga.
+    for (let i = r.levels.length; i < trimmed.length; i++) {
+      const msg = onAddLevel(r.id, trimmed[i]);
+      if (msg !== 'OK') { alert(msg); return; }
     }
     onUpdateRack(r.id, { name: editName.trim(), w: editW, h: editH, rot: editRot });
     setEditId(null);
@@ -197,7 +206,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
                         <Button variant="outline" size="sm" onClick={() => { const msg = onDeleteLevel(r.id, r.levels[i]); if (msg !== 'OK') alert(msg); else setEditLevels((prev) => prev.filter((_, j) => j !== i)); }}>Hapus Level</Button>
                       </div>
                     ))}
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setEditLevels((prev) => [...prev, `Level ${prev.length + 1}`])}>+ Tambah Level</Button>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setEditLevels((prev) => { let k = prev.length + 1; while (prev.includes(`Level ${k}`)) k++; return [...prev, `Level ${k}`]; })}>+ Tambah Level</Button>
                   </div>
                   <div className="flex gap-2"><Button onClick={() => saveEdit(r)}>Simpan Perubahan Rak</Button><Button variant="outline" onClick={() => setEditId(null)}>Batal</Button></div>
                 </CardContent>
