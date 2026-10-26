@@ -165,7 +165,7 @@ Dua hal terkait yang ikut berubah di build ini:
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-username-scan-menu)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-tambah-cepat)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password
