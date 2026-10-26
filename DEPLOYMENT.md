@@ -33,6 +33,10 @@ lengkap (termasuk tabel `external_totals` + `sync_runs`), dan Edge Function
    untuk admin KWSN: `{"role": "admin", "branch_id": "KWSN"}`.
    Nama/username akun di aplikasi (Kelola Akun) tetap dipakai sebagai
    `createdBy` di sesi, tapi otorisasi produksi memakai klaim ini.
+   CARA KEDUA (lebih gampang, setelah fungsi di §2a di-deploy): login
+   sebagai Super Admin di aplikasi, buka Kelola Akun → isi email, nama,
+   password, hak akses, cabang → "Buat Akun Supabase". Akun langsung
+   aktif + klaimnya langsung terpasang, tanpa SQL manual.
 
 ## 2. Supabase — Edge Function inox-sync (sekali saja)
 
@@ -84,6 +88,32 @@ menyentuh `stock_by_rack`.
    `skipped`, `branchSummary`, `lcdVariants` (varian lengkap, mis. `LCD-JK`).
    Riwayatnya tersimpan di tabel `sync_runs`.
 
+## 2a. Supabase — Edge Function admin-create-user (sekali saja, untuk fitur Buat Akun dari aplikasi)
+
+Fungsi ini (`supabase/functions/admin-create-user/index.ts`) memungkinkan
+Super Admin membuat akun dari dalam aplikasi (Kelola Akun, mode cloud)
+tanpa membuka dashboard Supabase dan tanpa SQL manual.
+
+Cara kerjanya (aman): aplikasi mengirim JWT user yang login → fungsi
+memverifikasi token itu ke Supabase Auth dan memeriksa klaimnya
+(`app_metadata.role` harus `super`) → kalau ya, fungsi membuat user baru
+lewat Admin API dengan `email_confirm: true` (langsung aktif) dan klaim
+role/cabang langsung terpasang. Fungsi TIDAK PERNAH percaya role yang
+dikirim dari body request — satu-satunya sumber kebenaran adalah token
+yang sudah diverifikasi. Service role key tidak pernah dikirim ke
+aplikasi; ia hanya dibaca fungsi dari variabel bawaan Supabase.
+
+Deploy-nya sama seperti inox-sync (paste di dashboard Edge Functions
+dengan nama persis `admin-create-user`, atau `supabase functions deploy
+admin-create-user` dari CLI). TIDAK ADA SECRET BARU yang perlu diisi:
+fungsi ini hanya memakai variabel bawaan `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY` (otomatis tersedia,
+tidak bisa diisi manual karena berawalan SUPABASE_).
+
+Catatan: fungsi ini TIDAK menggantikan inox-sync — keduanya fungsi
+berbeda, keduanya harus ada. Kalau fungsi ini belum di-deploy, form
+Buat Akun di aplikasi akan gagal dengan pesan error yang menyebutnya.
+
 ## 3. Netlify — sambungkan repo (sekali saja)
 
 1. Buka https://app.netlify.com, Add new site → Import an existing project
@@ -99,7 +129,7 @@ menyentuh `stock_by_rack`.
    Jangan isi `INOX_PASSWORD` atau service role key di Netlify — tempatnya
    hanya di secrets Edge Function Supabase.
 4. Deploy. Begitu selesai, buka URL Netlify-nya dan cek:
-   - Footer menampilkan `Build 2026-10-26-hapus-item`.
+   - Footer menampilkan `Build 2026-10-26-buat-akun`.
    - Badge `Supabase terkonfigurasi (belum login cloud)` muncul di header
      (tanda env terbaca); setelah login Supabase, badge menjadi
      `Supabase • Cloud`.
@@ -109,7 +139,7 @@ menyentuh `stock_by_rack`.
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-hapus-item)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-buat-akun)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password
