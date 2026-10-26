@@ -139,7 +139,7 @@ Buat Akun di aplikasi akan gagal dengan pesan error yang menyebutnya.
      setelah deploy pertama, wajib Trigger deploy ulang, kalau tidak
      aplikasi tetap mengira Supabase belum terkonfigurasi.
 
-## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-buat-akun)
+## 4. Migrasi data penuh ke Supabase (SELESAI di kode, build 2026-10-26-buat-akun-fix)
 
 - Kalau env Supabase terisi, layar login menampilkan tombol
   **"Masuk dengan Supabase (data cloud)"** (butuh email + password

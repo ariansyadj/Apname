@@ -350,11 +350,10 @@ export async function sbAdminCreateUser(input: { email: string; password: string
   const token = session?.access_token;
   if (!token) throw new Error("Login Supabase dulu (sesi tidak ditemukan).");
   const url = import.meta.env.VITE_SUPABASE_URL as string;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-  if (!url || !anonKey) throw new Error("Supabase belum dikonfigurasi.");
+  if (!url) throw new Error("Supabase belum dikonfigurasi.");
   const res = await fetch(`${url}/functions/v1/admin-create-user`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, apikey: anonKey, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   const data = await res.json().catch(() => ({ ok: false, error: "Respons Edge Function bukan JSON" }));
