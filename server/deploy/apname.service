@@ -6,7 +6,7 @@ Wants=postgresql.service
 [Service]
 Type=simple
 User=apname
-WorkingDirectory=/opt/apname/repo/opname-app/server
+WorkingDirectory=/opt/apname/repo/server
 EnvironmentFile=/opt/apname/.env
 ExecStart=/usr/bin/node src/server.js
 Restart=always
