@@ -1149,7 +1149,7 @@ export default function App() {
           {view === 'settings' && isVpsConfigured && (<Card className="max-w-2xl mb-4"><CardHeader><CardTitle>VPS — Mode Cloud</CardTitle><CardDescription>{vpsMode ? `Login cloud sebagai ${sbUser?.name} (${sbUser?.email}) — role ${sbUser?.role}${sbUser?.branchId ? `, cabang ${sbUser?.branchId}` : ', semua cabang'}. Perubahan tersimpan otomatis ke VPS dan mengalir ke device lain lewat WebSocket (tanpa tombol Muat Ulang). Sync iNOX berjalan otomatis terjadwal di server.` : 'VPS terkonfigurasi, tapi sesi ini masih mode demo lokal. Login dengan VPS di layar login untuk memakai data cloud.'}</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-2"><Button onClick={reloadFromVps} disabled={!vpsMode || sbBusy}>Muat Ulang dari VPS</Button><Button variant="outline" onClick={testVpsSync} disabled={sbBusy}>Uji Sync VPS (test)</Button><Button variant="outline" onClick={doSync} disabled={syncBusy || !vpsMode}>{syncBusy ? 'Sync Berjalan…' : 'Sync iNOX via VPS'}</Button><label className="inline-flex cursor-pointer items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent">Import JSON (migrasi Supabase)<input type="file" accept="application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importVpsJson(f); e.target.value = ''; }} /></label></div><p className="text-xs text-muted-foreground">Sync via VPS menulis produk + total eksternal dari iNOX, bukan stok rak. Sync juga berjalan otomatis terjadwal di server (tombol hanya cadangan). Import JSON menerima file hasil "Unduh Data Cloud (JSON)" dari aplikasi mode Supabase — jalankan sekali saat migrasi.</p>{sbError && <p className="text-sm">{sbError}</p>}</CardContent></Card>)}
           {view === 'settings' && (<Card className="max-w-2xl"><CardHeader><CardTitle>Settings → Integrasi iNOX</CardTitle><CardDescription>{inoxMode === 'local' ? 'MODE LOKAL NYATA: sync memanggil inox.my.id lewat server lokal localhost:4001 (harus jalan dulu: npm run inox-server). Password hanya di memori satu request.' : 'MODE DEMO: aplikasi ini TIDAK memanggil inox.my.id. Sync nyata lewat kartu VPS di atas.'}</CardDescription></CardHeader><CardContent className="space-y-4"><FieldSelect label="Mode Integrasi iNOX" value={inoxMode} onChange={setInoxMode} options={[{ value: 'demo', label: 'Demo (tanpa iNOX nyata)' }, { value: 'local', label: 'Lokal Nyata (server localhost:4001)' }]} />{inoxMode === 'local' && (<Card><CardContent className="space-y-3 pt-6"><p className="text-sm font-medium">Mode Lokal Nyata — sync benar-benar dari inox.my.id, bukan demo.</p><p className="text-sm">Jalankan <b>npm run inox-server</b> di PC, isi username + password iNOX di bawah, tekan Uji Koneksi Nyata lalu Sync Nyata Sekarang. Password hanya di memori satu request, tidak disimpan.</p><div className="flex flex-wrap gap-2"><Button onClick={testInoxLocal}>Uji Koneksi Nyata</Button><Button variant="outline" onClick={doSync} disabled={syncBusy}>{syncBusy ? 'Sync Nyata Berjalan…' : 'Sync Nyata Sekarang'}</Button></div>{lcdSample && (<div className="rounded-md border p-3 text-sm"><p className="font-medium">Sampel LCD MENTAH — hasil Uji Koneksi terakhir (total {lcdSample.total ?? '?'} baris LCD di feed, belum diproses)</p><p className="text-xs text-muted-foreground">Yang menentukan: product_variation DAN variation_name di tiap baris. Screenshot kotak ini saja sudah cukup sebagai bukti.</p><ul className="mt-2 list-disc pl-5">{lcdSample.rows.map((r: any, i: number) => Array.isArray(r) ? <li key={i}>SKU={r[0]} | Produk={r[1]} | Varian mentah={r[2]} | Lokasi={r[4]}</li> : <li key={i}>SKU={r.sku} | {r.product} | product_variation={r.product_variation} | variation_name={r.variation_name} | variation={r.variation} | {r.location_name}</li>)}</ul>{lcdSample.rows.length === 0 && <p>Tidak ada baris LCD yang ditemukan pencarian feed — kabari pengembang.</p>}</div>)}{lastSyncReport && (<div className="rounded-md border p-3 text-sm"><p className="font-medium">Hasil sync terakhir — {fmtShort(lastSyncReport.at)}</p><p>Feed: {lastSyncReport.recordsTotal} baris, terkumpul {lastSyncReport.fetched} • Baru: {lastSyncReport.added} • Diperbarui: {lastSyncReport.updated} • Dilewati: {lastSyncReport.skipped} • Per cabang: {lastSyncReport.branchSummary}</p><p>Varian LCD di feed ({lastSyncReport.lcdVariants.length}): {lastSyncReport.lcdVariants.join(', ') || '—'}</p><p className="text-xs text-muted-foreground">Kalau varian LCD yang kamu cari tidak ada di daftar ini, berarti feed iNOX sendiri tidak mengembalikannya pada sync itu — bukan import yang menghapusnya. Cek filter lokasi/kategori di iNOX, lalu sync ulang.</p></div>)}</CardContent></Card>)}<div><label className="text-sm font-medium">Username iNOX</label><Input className="mt-1" value={inoxUser} onChange={e => setInoxUser(e.target.value)} placeholder="mis. ariansya" /></div><div><label className="text-sm font-medium">Password iNOX (tidak disimpan, hanya memori sesi demo)</label><Input className="mt-1" type="password" value={inoxPass} onChange={e => setInoxPass(e.target.value)} placeholder="••••••••" /></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { if (!inoxUser || !inoxPass) { alert('Isi username dan password dulu.'); return; } alert('Uji Koneksi DEMO: tidak ada panggilan nyata ke inox.my.id, jadi hasil ini BUKAN validasi akun. Akun asal-asalan pun tidak akan ditolak di versi demo — itulah bug versi lama yang sudah diperbaiki dengan tidak lagi mengklaim Terhubung. Validasi nyata hanya lewat Mode Lokal Nyata di atas (server localhost:4001).'); }}>Uji Koneksi (Demo — Bukan Validasi Nyata)</Button><Button variant="outline" onClick={() => { if (!inoxUser) { alert('Isi username dulu.'); return; } alert('Username disimpan untuk tampilan demo saja. Status tetap Mode demo — belum terhubung nyata. Password tidak disimpan.'); }}>Simpan Username (Demo Saja)</Button>{inoxUser && <Button variant="outline" onClick={() => { setInoxUser(''); setInoxPass(''); alert('Username demo dihapus.'); }}>Hapus Username Demo</Button>}{inoxConnected && <Button variant="destructive" onClick={() => { setInoxConnected(false); alert('Integrasi diputuskan. Data hasil sync lama tetap tampil.'); }}>Putuskan Integrasi / Logout iNOX</Button>}</div><div><h3 className="font-semibold">Pemetaan Lokasi iNOX → Cabang Opname</h3><ul className="mt-2 list-disc pl-5 text-sm">{allBranches.map(b => <li key={b.id}>{b.location_id} = {b.location_name} → {b.name}{BRANCHES.some(x => x.id === b.id) ? '' : ' (otomatis dari data sync — rak default sudah dibuatkan)'}</li>)}</ul></div></CardContent></Card>)}
         </main>
-        <footer className="p-4 text-center text-xs text-muted-foreground">Apname — Opname Per Rak • Build 2026-10-27-filter-inox • Tema: {theme} • {fmtWita(now)}</footer>
+        <footer className="p-4 text-center text-xs text-muted-foreground">Apname — Opname Per Rak • Build 2026-10-27-scan-kamera • Tema: {theme} • {fmtWita(now)}</footer>
       </div>
     </div>
   </div>);
@@ -1279,28 +1279,45 @@ function SessionCard({ sess, products, racks, active, onSelect, onScan, onDelete
     return true;
   };
   useEffect(() => { if (!allowedLevels.includes(level)) setLevel(allowedLevels[0] || ''); }, [rackId]);
-  const [camOn, setCamOn] = useState(false); const videoRef = useRef<HTMLVideoElement | null>(null); const streamRef = useRef<MediaStream | null>(null);
+  const [camOn, setCamOn] = useState(false); const videoRef = useRef<HTMLVideoElement | null>(null); const streamRef = useRef<MediaStream | null>(null); const zxRef = useRef<{ stop: () => void } | null>(null);
   const [showMut, setShowMut] = useState(false); const [scanPage, setScanPage] = useState(1); const [scanPageSize, setScanPageSize] = useState<number | 'Semua'>(25); const [scanScope, setScanScope] = useState<'aktif' | 'semua'>('aktif');
   const [mutProd, setMutProd] = useState(products[0]?.id || ''); const [mutSearch, setMutSearch] = useState(products[0] ? `${products[0].name} — ${products[0].variant} (${products[0].sku}) • ${branchIdOfProduct(products[0])}` : ''); const [mutSuggestOpen, setMutSuggestOpen] = useState(false); const mutSuggestions = mutSearch.trim() === '' ? [] : products.filter(pr => branchIdOfProduct(pr) === sess.branchId && matchesQuery(pr, mutSearch)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 8); const [mutKind, setMutKind] = useState('Penjualan'); const [mutDir, setMutDir] = useState<'Masuk' | 'Keluar'>('Keluar'); const [mutQty, setMutQty] = useState(1); const [mutRack, setMutRack] = useState(''); const [mutRef, setMutRef] = useState(''); const [mutNote, setMutNote] = useState('');
-  const stopCam = () => { streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null; setCamOn(false); };
-  useEffect(() => () => { streamRef.current?.getTracks().forEach(t => t.stop()); }, []);
+  const stopCam = () => { try { zxRef.current?.stop(); } catch { /* abaikan */ } zxRef.current = null; streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null; setCamOn(false); };
+  useEffect(() => () => { try { zxRef.current?.stop(); } catch { /* abaikan */ } streamRef.current?.getTracks().forEach(t => t.stop()); }, []);
   const startCam = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) { alert('Perangkat ini tidak mendukung kamera di browser. Pakai input manual.'); return; }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       streamRef.current = stream; setCamOn(true);
-      setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream; }, 50);
+      const onCode = (raw: string) => { if (raw.startsWith('APNAME|')) { applyRackQr(raw); } else { onScan(raw, mode === '+1 per scan' ? 1 : qty, 'Scan Kamera', rackId, level); } stopCam(); };
+      const waitVideo = async () => { for (let i = 0; i < 40 && !videoRef.current; i++) await new Promise(r => setTimeout(r, 50)); return videoRef.current; };
       const Detector = (window as unknown as { BarcodeDetector?: new () => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
-      if (!Detector) { alert('Browser ini tidak mendukung BarcodeDetector. Kamera tetap dibuka, tapi hasil scan harus diketik manual.'); return; }
-      const detector = new Detector();
-      const timer = setInterval(async () => {
-        try {
-          if (!videoRef.current || videoRef.current.readyState < 2) return;
-          const codes = await detector.detect(videoRef.current);
-          if (codes[0]?.rawValue) { if (codes[0].rawValue.startsWith('APNAME|')) { applyRackQr(codes[0].rawValue); } else { onScan(codes[0].rawValue, mode === '+1 per scan' ? 1 : qty, 'Scan Kamera', rackId, level); } clearInterval(timer); stopCam(); }
-        } catch { /* keep scanning until stopped */ }
-      }, 600);
-      stream.getTracks()[0]?.addEventListener('ended', () => clearInterval(timer));
+      if (Detector) {
+        const video = await waitVideo(); if (video) video.srcObject = stream;
+        const detector = new Detector();
+        const timer = setInterval(async () => {
+          try {
+            if (!videoRef.current || videoRef.current.readyState < 2) return;
+            const codes = await detector.detect(videoRef.current);
+            if (codes[0]?.rawValue) { clearInterval(timer); onCode(codes[0].rawValue); }
+          } catch { /* keep scanning until stopped */ }
+        }, 600);
+        stream.getTracks()[0]?.addEventListener('ended', () => clearInterval(timer));
+        return;
+      }
+      // Fallback untuk browser tanpa BarcodeDetector (mis. Safari iPhone):
+      // decoder ZXing dimuat terpisah hanya saat tombol ini ditekan di browser itu.
+      try {
+        const video = await waitVideo(); if (!video) { stopCam(); alert('Video kamera tidak siap. Coba tekan Scan Kamera lagi.'); return; }
+        video.srcObject = stream;
+        const { BrowserMultiFormatReader } = await import('@zxing/browser');
+        const reader = new BrowserMultiFormatReader();
+        const controls = await reader.decodeFromVideoElement(video, (result) => {
+          const raw = result?.getText();
+          if (raw) onCode(raw);
+        });
+        zxRef.current = controls;
+      } catch { stopCam(); alert('Decoder kamera gagal dimuat. Pakai input manual.'); }
     } catch { alert('Izin kamera ditolak atau kamera tidak tersedia. Pakai input manual.'); }
   };
   return (<Card className="mb-3"><CardContent className="pt-6"><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{sess.id} — {sess.title}</b> <Badge>{sess.status}</Badge> <Badge variant="secondary">{sess.branchId} • {scopeLabel(sess)}</Badge><div className="text-xs text-muted-foreground">Dibuat: {fmtShort(sess.createdAt)} • Sync saat sesi: {sess.externalAt ? fmtShort(sess.externalAt) : '—'} • Scan: {sess.scans.length} • Mutasi: {(sess.mutations || []).length}</div></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={onSelect}>{active ? 'Sesi Aktif' : 'Pilih Sesi Ini'}</Button>{canDeleteSession && onDeleteSession && <Button variant="destructive" size="sm" onClick={onDeleteSession}><Trash2 className="size-4" /> Hapus Sesi</Button>}</div></div>
