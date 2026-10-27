@@ -45,6 +45,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
   const [editRot, setEditRot] = useState(0);
   const [editLevels, setEditLevels] = useState<string[]>([]);
   const [isi, setIsi] = useState<{ rack: Rack; level: string } | null>(null); const [isiPage, setIsiPage] = useState(1); const [isiPageSize, setIsiPageSize] = useState<number | 'Semua'>(25);
+  const [onlyFilled, setOnlyFilled] = useState(false);
   const levelItems = (rid: string, lv: string) => products.map((pr) => ({ pr, qty: stock[`${pr.id}|${rid}|${lv}`] || 0 })).filter((x) => x.qty > 0).sort((a, b) => a.pr.name.localeCompare(b.pr.name));
   const exportIsiExcel = async () => {
     if (!isi) return;
@@ -79,6 +80,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
     products.reduce((a, p) => a + levels.reduce((b, lv) => b + (stock[`${p.id}|${rid}|${lv}`] || 0), 0), 0);
   const levelTotal = (rid: string, lv: string) =>
     products.reduce((a, p) => a + (stock[`${p.id}|${rid}|${lv}`] || 0), 0);
+  const shownRacks = onlyFilled ? shown.filter((r) => rackTotal(r.id, r.levels) > 0) : shown;
 
   const startEdit = (r: Rack) => {
     setEditId(r.id);
@@ -137,6 +139,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
               </p>
             </div>
             <Button variant="outline" onClick={() => onGoVisual(branchId)}><MapIcon className="size-4" /> Lihat Denah Cabang Ini</Button>
+            <Button variant={onlyFilled ? 'default' : 'outline'} onClick={() => setOnlyFilled((v) => !v)}>Hanya level berisi</Button>
             {canEdit && (
               <Button onClick={() => setShowCreate((v) => !v)}><Plus className="size-4" /> {showCreate ? 'Tutup Form' : 'Tambah Rak'}</Button>
             )}
@@ -163,9 +166,9 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
         </CardContent>
       </Card>
 
-      {shown.length === 0 && <p className="text-sm text-muted-foreground">Belum ada rak di cabang ini. Tambah rak lewat tombol di atas.</p>}
+      {shownRacks.length === 0 && <p className="text-sm text-muted-foreground">{onlyFilled ? 'Tidak ada rak berisi di cabang ini (filter "Hanya level berisi" aktif).' : 'Belum ada rak di cabang ini. Tambah rak lewat tombol di atas.'}</p>}
 
-      {shown.map((r) => (
+      {shownRacks.map((r) => (
         <Card key={r.id}>
           <CardContent className="space-y-3 pt-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -214,7 +217,7 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
             )}
 
             <div>
-              {r.levels.map((lv) => (
+              {r.levels.filter((lv) => !onlyFilled || levelTotal(r.id, lv) > 0).map((lv) => (
                 <div key={lv} className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
                   <span>{lv} — {levelTotal(r.id, lv)} unit</span>
                   <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => { setIsi({ rack: r, level: lv }); setIsiPage(1); }}><Eye className="size-4" /> Lihat Isi</Button><Button variant="outline" size="sm" onClick={() => printLabels([labelFor(r, lv)])}><Printer className="size-4" /> Label</Button><Button size="sm" onClick={() => onOpenLevel(r.id, lv)}>Opname Level Ini Saja</Button></div>
