@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Branch, Product, Rack } from '../data';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import { Plus, Trash2, Pencil, Map as MapIcon, ClipboardList, Printer, Eye, File
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { printLabels, type LabelItem } from '../lib/labels';
+import { InfoTip } from './InfoTip';
 import { styleReportSheet } from '../lib/reportWidths';
 
 type Props = {
@@ -119,10 +120,10 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
       <Card>
         <CardHeader>
           <CardTitle>Master Rak</CardTitle>
-          <CardDescription>
+          <InfoTip>
             Daftar rak per cabang — rak tiap cabang tidak dicampur di denah yang sama.
             {canEdit ? ' Super Admin / Admin Cabang bisa tambah, edit nama dan level, dan hapus rak.' : ' Karyawan hanya bisa melihat — edit rak hanya untuk Super Admin / Admin Cabang.'}
-          </CardDescription>
+          </InfoTip>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -134,9 +135,9 @@ export function MasterRacks({ allRacks, branches, stock, products, canEdit, onAd
                   {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <InfoTip className="mt-1">
                 Cabang yang tampil mengikuti hak akses akun yang login. Admin/Karyawan hanya melihat cabangnya sendiri.
-              </p>
+              </InfoTip>
             </div>
             <Button variant="outline" onClick={() => onGoVisual(branchId)}><MapIcon className="size-4" /> Lihat Denah Cabang Ini</Button>
             <Button variant={onlyFilled ? 'default' : 'outline'} onClick={() => setOnlyFilled((v) => !v)}>Hanya level berisi</Button>
