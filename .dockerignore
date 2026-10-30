@@ -1,0 +1,18 @@
+# File yang tidak ikut ke dalam image Docker Apname.
+node_modules
+dist
+dist-ssr
+.git
+.github
+*.log
+*.local
+.env
+.env.*
+! .env.docker.example
+coverage
+.vscode
+.idea
+.DS_Store
+server/node_modules
+supabase
+netlify.toml

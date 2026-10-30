@@ -1,0 +1,82 @@
+# Apname — Docker Compose untuk VPS / pemakaian ulang di provider mana pun
+# CARA PAKAI (di folder root repo, setelah .env dibuat dari .env.docker.example):
+#   docker compose up -d --build
+#   docker compose ps
+#   curl http://127.0.0.1:8080/api/health  # bila backend menyediakan health
+#
+# Arsitektur (sama dengan setup native VPS sebelumnya, hanya dibungkus Docker):
+#   web     : Nginx, melayani frontend Vite (mode VPS) + proxy /api dan /ws
+#             ke backend. Hanya di-bind ke localhost:8080, supaya akses
+#             publik lewat Nginx host + HTTPS (lihat docker/nginx-host.conf).
+#   backend : Node 20, API + WebSocket + sync iNOX (server/src/server.js),
+#             port 4000 hanya localhost, untuk debugging.
+#   db      : Postgres 16, data di volume apname-postgres (tidak hilang
+#             kalau container dihapus / di-rebuild). Skema awal
+#             server/schema.sql dijalankan OTOMATIS hanya saat volume
+#             masih kosong (fitur init Postgres). Untuk database yang
+#             sudah ada, skema tidak dijalankan ulang.
+#
+# File ini TIDAK berisi secret. Semua secret hanya dari file .env.
+# Jangan commit .env, jangan kirim isinya lewat chat.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-apname}
+      POSTGRES_USER: ${POSTGRES_USER:-apname}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi di .env}
+    volumes:
+      - apname-postgres:/var/lib/postgresql/data
+      - ./server/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "4000"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL wajib diisi di .env}
+      APNAME_JWT_SECRET: ${APNAME_JWT_SECRET:?APNAME_JWT_SECRET wajib diisi di .env}
+      INOX_USERNAME: ${INOX_USERNAME:-}
+      INOX_PASSWORD: ${INOX_PASSWORD:-}
+      SYNC_INTERVAL_MIN: ${SYNC_INTERVAL_MIN:-30}
+    ports:
+      - "127.0.0.1:4000:4000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_VPS_MODE: "1"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:80"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  apname-postgres:
